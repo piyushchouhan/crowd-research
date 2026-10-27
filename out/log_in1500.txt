@@ -1,0 +1,6 @@
+t=    0s agents=    51 waiting_outside=     0 wall=    0s
+t=   60s agents=  2478 waiting_outside=     0 wall=   11s
+t=  120s agents=  4868 waiting_outside=     0 wall=   46s
+t=  180s agents=  7285 waiting_outside=     0 wall=  108s
+t=  240s agents=  9695 waiting_outside=     0 wall=  187s
+t=  300s agents= 12137 waiting_outside=     0 wall=  292s

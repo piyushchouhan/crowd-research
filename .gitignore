@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+.DS_Store
+*.aux.xml
+# Large regenerable previews
+data/sentinel2/*_preview.png
+data/sentinel2/compare_*.png
