@@ -1,0 +1,27 @@
+{
+  "map_data_dir": "/Users/piyushchauhan/Documents/ChatGPT/Crowd Control/sangam-command/data",
+  "hotspot": {
+    "half_window_m": 600,
+    "bathing_radius_m": 120,
+    "goal_radius_m": 40,
+    "spawn_depth_m": 25,
+    "pontoon_end_extension_m": 15,
+    "default_width_m": {"pontoon": 5.0, "mela_road": 5.5, "approach": 5.5},
+    "width_override_m": {"pontoon": null, "mela_road": null, "approach": null}
+  },
+  "capacity": {
+    "specific_flow_pms": 1.3
+  },
+  "agents": {
+    "radius_m": 0.2,
+    "min_spawn_gap_m": 0.45,
+    "desired_speed_mps": {"mean": 1.2, "sd": 0.2, "min": 0.6, "max": 1.8}
+  },
+  "gate_weights": [0.15, 0.15, 0.2, 0.2, 0.15, 0.15],
+  "analysis": {
+    "cell_m": 4.0,
+    "min_walkable_m2": 6.0,
+    "dense_ppm2": 4.0,
+    "critical_ppm2": 6.0
+  }
+}

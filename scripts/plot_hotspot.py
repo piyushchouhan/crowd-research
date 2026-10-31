@@ -1,13 +1,14 @@
 """Draw the hotspot walkable area over the Sentinel-2 image (sanity check)."""
 import json, subprocess
-from pathlib import Path
 import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from PIL import Image
 from shapely.geometry import shape
 
-ROOT = Path(__file__).resolve().parent.parent
-TIF = "/Users/piyushchauhan/Documents/ChatGPT/Crowd Control/sangam-command/data/prayagraj_sangam_2025-01-27.tif"
+import config
+
+ROOT = config.ROOT
+TIF = str(config.load()["map_data_dir"] / "prayagraj_sangam_2025-01-27.tif")
 
 
 def background(ax, hs, walk):

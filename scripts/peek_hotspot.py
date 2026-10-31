@@ -1,5 +1,4 @@
 import json, subprocess, sys
-from pathlib import Path
 import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -7,7 +6,9 @@ from pyproj import Transformer
 from shapely.geometry import shape, box
 from shapely.ops import transform
 
-MAP = Path("/Users/piyushchauhan/Documents/ChatGPT/Crowd Control/sangam-command/data")
+import config
+
+MAP = config.load()["map_data_dir"]
 to_utm = Transformer.from_crs(4326, 32644, always_xy=True).transform
 def load(p):
     return [(f["properties"], transform(to_utm, shape(f["geometry"]))) for f in json.load(open(MAP / p))["features"] if f["geometry"]]

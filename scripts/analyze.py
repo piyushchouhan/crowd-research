@@ -6,7 +6,6 @@ Writes out/<name>/metrics.json and three PNGs.
 """
 import json
 import sys
-from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")
@@ -17,11 +16,14 @@ from shapely.geometry import box, shape
 
 from plot_hotspot import background, outline
 
-ROOT = Path(__file__).resolve().parent.parent
-CELL_M = 4.0
-MIN_WALKABLE_M2 = 6.0        # ignore cells that are mostly wall/water
-DENSE = 4.0                  # people/m2: free walking stops
-CRITICAL = 6.0               # people/m2: crush risk
+import config
+
+ROOT = config.ROOT
+_A = config.load()["analysis"]
+CELL_M = _A["cell_m"]
+MIN_WALKABLE_M2 = _A["min_walkable_m2"]  # ignore cells that are mostly wall/water
+DENSE = _A["dense_ppm2"]                 # people/m2: free walking stops
+CRITICAL = _A["critical_ppm2"]           # people/m2: crush risk
 
 
 def main(name):
