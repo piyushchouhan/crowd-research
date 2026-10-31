@@ -10,19 +10,22 @@ Writes out/<name>/snapshots.npz (positions every second) and run.json.
 import argparse
 import json
 import time
-from pathlib import Path
 
 import jupedsim as jps
 import numpy as np
 import shapely
 from shapely.geometry import shape
 
-ROOT = Path(__file__).resolve().parent.parent
+import config
+
+ROOT = config.ROOT
+CFG = config.load()
 # Share of inbound arrivals per gate (G0..G5, see out/hotspot_walkable.png):
 # G0/G1 east bank via pontoons, G2/G3 north lanes along the nose, G4/G5 city roads.
-GATE_WEIGHTS = [0.15, 0.15, 0.2, 0.2, 0.15, 0.15]
-AGENT_RADIUS_M = 0.2
-MIN_SPAWN_GAP_M = 0.45
+GATE_WEIGHTS = CFG["gate_weights"]
+AGENT_RADIUS_M = CFG["agents"]["radius_m"]
+MIN_SPAWN_GAP_M = CFG["agents"]["min_spawn_gap_m"]
+SPEED = CFG["agents"]["desired_speed_mps"]
 
 
 def random_points(poly, n, rng):
@@ -56,6 +59,18 @@ def main():
     ghat = shape(hs["bathing_area"]).difference(goal.buffer(2)).buffer(-1)
     for g in [goal, ghat, *gates]:
         shapely.prepare(g)
+    if len(GATE_WEIGHTS) != len(gates):
+        raise SystemExit(f"config gate_weights has {len(GATE_WEIGHTS)} entries but the hotspot has {len(gates)} gates")
+
+    # Inbound demand per gate against its free-flow capacity (width x specific flow).
+    # Over capacity is allowed: queues and backlog are what we want to see.
+    gate_load = []
+    for i, (w, cap) in enumerate(zip(GATE_WEIGHTS, hs["gate_capacity"])):
+        demand = args.inflow * w
+        gate_load.append({"gate": i, "demand_ppm": round(demand), "capacity_ppm": cap["capacity_ppm"],
+                          "load": round(demand / cap["capacity_ppm"], 2)})
+        print(f"G{i}: demand {demand:6.0f}/min vs capacity {cap['capacity_ppm']:5d}/min "
+              f"({demand / cap['capacity_ppm']:.0%}){'  OVER' if demand > cap['capacity_ppm'] else ''}")
 
     sim = jps.Simulation(model=jps.CollisionFreeSpeedModel(), geometry=walk, dt=args.dt)
     goal_id = sim.add_exit_stage(goal)
@@ -93,7 +108,7 @@ def main():
             try:
                 sim.add_agent(jps.CollisionFreeSpeedModelAgentParameters(
                     journey_id=journey, stage_id=stage, position=tuple(p),
-                    desired_speed=float(np.clip(rng.normal(1.2, 0.2), 0.6, 1.8)),
+                    desired_speed=float(np.clip(rng.normal(SPEED["mean"], SPEED["sd"]), SPEED["min"], SPEED["max"])),
                     radius=AGENT_RADIUS_M))
             except RuntimeError:
                 continue
@@ -133,6 +148,7 @@ def main():
                         xy=np.concatenate(frames), ids=np.concatenate(frame_ids))
     run = {"args": vars(args), "gate_weights": GATE_WEIGHTS, "agent_radius_m": AGENT_RADIUS_M,
            "model": "CollisionFreeSpeedModel", "wall_seconds": round(time.time() - t0, 1),
+           "agents": CFG["agents"], "gate_load": gate_load,
            "assumptions": hs["assumptions"], "series": series}
     (out / "run.json").write_text(json.dumps(run))
     print(f"done {name}: wall {run['wall_seconds']}s, peak agents {max(s['agents'] for s in series)}")
