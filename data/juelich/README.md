@@ -8,6 +8,8 @@ git; download the trajectories with the commands below.
 |---|---|---|---|
 | `bottleneck2/` | Bottleneck, Caserne (Düsseldorf 2006), runs `b090`–`b250`: widths 0.9–2.5 m, length 4 m, ~175 people | [10.34735/ped.2006.2](https://doi.org/10.34735/ped.2006.2) | flow vs width |
 | `unidir_open/` | Hermes unidirectional corridor, open boundary (Düsseldorf 2009), corridors 1.8/2.4/3.0 m | [10.34735/ped.2009.14](https://doi.org/10.34735/ped.2009.14) | speed–density |
+| `bidir_symmetric/` | Hermes two-way corridor, symmetric entrances (13 runs) | [10.34735/ped.2009.11](https://doi.org/10.34735/ped.2009.11) | two-way flow |
+| `bidir_asymmetric/` | Hermes two-way corridor, asymmetric entrances (6 runs; `boa-300-frei` not used) | [10.34735/ped.2009.10](https://doi.org/10.34735/ped.2009.10) | two-way flow |
 
 Trajectory format: `id frame x y [z]`, centimetres; 25 fps (bottleneck), 16 fps (corridor).
 Each run's geometry is the `wkt_geometry` in `metadata.json`.
@@ -19,6 +21,10 @@ U=http://ped.fz-juelich.de/experiments/2009.05.12_Duesseldorf_Messe_Hermes/data/
 curl -L -o bottleneck2/trajectories_txt.zip $B/2006bottleneck2_trajectories_txt.zip
 curl -L -o unidir_open/trajectories_txt.zip $U/2009unidirectional_open_trajectories_txt.zip
 (cd bottleneck2 && unzip -o trajectories_txt.zip) && (cd unidir_open && unzip -o trajectories_txt.zip)
+for k in symmetric asymmetric; do
+  curl -L -o bidir_$k/trajectories_txt.zip $U/2009bidirectional_${k}_trajectories_txt.zip
+  (cd bidir_$k && unzip -o trajectories_txt.zip)
+done
 ```
 
 Please cite (as the archive asks):

@@ -1,5 +1,8 @@
 .venv/
 __pycache__/
+# Secrets (API keys). Never commit: this repo is public.
+.env
+.env.*
 .DS_Store
 *.aux.xml
 # Large regenerable previews
@@ -15,3 +18,4 @@ out/*
 out/validation/*/sim/
 # Per-setting plots of the calibration grids; their summary.json is enough
 out/validation/grid*/*.png
+out/validation/sfgrid*/*.png

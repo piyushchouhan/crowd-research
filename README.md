@@ -14,7 +14,10 @@ will test whether sparse phone pings (1–5% of people) can detect it in time.
 | `scripts/run_sim.py` | JuPedSim simulation: inbound to the ghat + outbound counter-flow |
 | `scripts/analyze.py` | Density / speed / crowd pressure per 4 m cell, plots |
 | `out/<run>/` | Snapshots (1 s), `run.json`, `metrics.json`, PNGs |
-| `scripts/validate_juelich.py` | Model validation against Jülich bottleneck and corridor experiments |
+| `scripts/validate_juelich.py` | Model validation against Jülich bottleneck, one-way and two-way corridor experiments (`--model` picks the JuPedSim model) |
+| `scripts/score_validation.py` | Rank validation runs by mean error |
+| `scripts/sf_grid.sh` | SocialForce calibration grid (18 settings) |
+| `scripts/sweep.py` | Run a Sangam scenario (`config/sim.json` → `scenarios`) over its inflow range |
 | `docs/paper_draft.md` | Paper draft: methods, validation results, limitations, references |
 | `docs/research_log.md` | Dated log of what was done and decided |
 
@@ -83,6 +86,13 @@ Calibration: grid over time gap and radius, tuned on widths 0.9/1.2/1.6/2.0/2.5 
 7 corridor runs (2 seeds), checked on all 10 widths and 29 corridor runs (5 seeds).
 Results in `out/validation/<name>/` (`summary.json`, `flow_vs_width.png`,
 `nt_curves.png`, `speed_density.png`).
+
+**Two-way flow fails.** On the Jülich two-way corridor runs (2009 Hermes, 18 runs), the
+calibrated model gets 0/18 within ±15%: flow is 17–77% too low and 11/18 runs deadlock, because
+agents meet head-on instead of forming lanes. JuPedSim's other models did no better:
+AnticipationVelocity deadlocked, GeneralizedCentrifugalForce crashed, and SocialForce (18
+settings, `scripts/sf_grid.sh`) passed none of the tests. So counter-flow results from
+`run_sim.py` are not trustworthy yet. See `docs/research_log.md`.
 
 What it does **not** show:
 - The model still clogs for good at the narrowest corridor exits (0.7–0.8 m) in some seeds;
