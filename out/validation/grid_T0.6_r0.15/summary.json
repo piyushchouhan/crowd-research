@@ -1,0 +1,108 @@
+{
+ "model": {
+  "strength_neighbor_repulsion": 8.0,
+  "range_neighbor_repulsion": 0.1,
+  "strength_geometry_repulsion": 5.0,
+  "range_geometry_repulsion": 0.02
+ },
+ "agents": {
+  "radius_m": 0.15,
+  "time_gap_s": 0.6,
+  "min_spawn_gap_m": 0.45,
+  "desired_speed_mps": {
+   "mean": 1.2,
+   "sd": 0.2,
+   "min": 0.6,
+   "max": 1.8
+  }
+ },
+ "overrides": [
+  "agents.time_gap_s=0.6",
+  "agents.radius_m=0.15"
+ ],
+ "seeds": 2,
+ "tolerance": 0.15,
+ "start_density_ppm2": 3.0,
+ "bottleneck": {
+  "runs": [
+   {
+    "run": "b090",
+    "n": 170,
+    "width_m": 0.9,
+    "stuck": [
+     0,
+     0
+    ],
+    "flow_real_ps": 1.558,
+    "flow_sim_ps": 1.952,
+    "flow_sim_sd": 0.011,
+    "error": 0.253,
+    "pass": false
+   },
+   {
+    "run": "b120",
+    "n": 178,
+    "width_m": 1.2,
+    "stuck": [
+     0,
+     0
+    ],
+    "flow_real_ps": 2.25,
+    "flow_sim_ps": 2.339,
+    "flow_sim_sd": 0.026,
+    "error": 0.04,
+    "pass": true
+   },
+   {
+    "run": "b160",
+    "n": 178,
+    "width_m": 1.6,
+    "stuck": [
+     0,
+     0
+    ],
+    "flow_real_ps": 2.765,
+    "flow_sim_ps": 3.2,
+    "flow_sim_sd": 0.001,
+    "error": 0.157,
+    "pass": false
+   },
+   {
+    "run": "b200",
+    "n": 178,
+    "width_m": 2.0,
+    "stuck": [
+     0,
+     0
+    ],
+    "flow_real_ps": 3.437,
+    "flow_sim_ps": 4.204,
+    "flow_sim_sd": 0.012,
+    "error": 0.223,
+    "pass": false
+   },
+   {
+    "run": "b250",
+    "n": 176,
+    "width_m": 2.5,
+    "stuck": [
+     0,
+     0
+    ],
+    "flow_real_ps": 4.958,
+    "flow_sim_ps": 5.228,
+    "flow_sim_sd": 0.027,
+    "error": 0.055,
+    "pass": true
+   }
+  ],
+  "specific_flow_real_pms": 1.846,
+  "specific_flow_sim_pms": 2.069,
+  "config_specific_flow_pms": 1.3,
+  "mean_abs_error": 0.146,
+  "max_abs_error": 0.253,
+  "widths_passing": 2,
+  "widths_total": 5,
+  "pass": false
+ }
+}

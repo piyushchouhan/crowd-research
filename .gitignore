@@ -5,3 +5,13 @@ __pycache__/
 # Large regenerable previews
 data/sentinel2/*_preview.png
 data/sentinel2/compare_*.png
+# Jülich trajectories: download, see data/juelich/README.md
+data/juelich/*/*.txt
+data/juelich/*/*.zip
+# Simulation outputs are regenerable and can reach gigabytes. Only the validation
+# results are kept; paper figures are copied to docs/figures/.
+out/*
+!out/validation/
+out/validation/*/sim/
+# Per-setting plots of the calibration grids; their summary.json is enough
+out/validation/grid*/*.png

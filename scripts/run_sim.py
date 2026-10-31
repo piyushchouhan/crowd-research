@@ -72,7 +72,7 @@ def main():
         print(f"G{i}: demand {demand:6.0f}/min vs capacity {cap['capacity_ppm']:5d}/min "
               f"({demand / cap['capacity_ppm']:.0%}){'  OVER' if demand > cap['capacity_ppm'] else ''}")
 
-    sim = jps.Simulation(model=jps.CollisionFreeSpeedModel(), geometry=walk, dt=args.dt)
+    sim = jps.Simulation(model=jps.CollisionFreeSpeedModel(**CFG["model"]), geometry=walk, dt=args.dt)
     goal_id = sim.add_exit_stage(goal)
     in_journey = sim.add_journey(jps.JourneyDescription([goal_id]))
     # JuPedSim exits must be convex: use the largest circle that fits inside each gate.
@@ -109,7 +109,7 @@ def main():
                 sim.add_agent(jps.CollisionFreeSpeedModelAgentParameters(
                     journey_id=journey, stage_id=stage, position=tuple(p),
                     desired_speed=float(np.clip(rng.normal(SPEED["mean"], SPEED["sd"]), SPEED["min"], SPEED["max"])),
-                    radius=AGENT_RADIUS_M))
+                    radius=AGENT_RADIUS_M, time_gap=CFG["agents"]["time_gap_s"]))
             except RuntimeError:
                 continue
             pos = np.vstack([pos, p])
@@ -148,7 +148,7 @@ def main():
                         xy=np.concatenate(frames), ids=np.concatenate(frame_ids))
     run = {"args": vars(args), "gate_weights": GATE_WEIGHTS, "agent_radius_m": AGENT_RADIUS_M,
            "model": "CollisionFreeSpeedModel", "wall_seconds": round(time.time() - t0, 1),
-           "agents": CFG["agents"], "gate_load": gate_load,
+           "model_params": CFG["model"], "agents": CFG["agents"], "gate_load": gate_load,
            "assumptions": hs["assumptions"], "series": series}
     (out / "run.json").write_text(json.dumps(run))
     print(f"done {name}: wall {run['wall_seconds']}s, peak agents {max(s['agents'] for s in series)}")
