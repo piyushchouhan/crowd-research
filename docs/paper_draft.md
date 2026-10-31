@@ -21,6 +21,9 @@ of attendees will share their location, and GPS is noisy in dense crowds.
 local crowd density well enough, and early enough, to warn of a dangerous situation
 5–10 minutes ahead? And do alerts or re-routing reduce peak density?
 
+**Scope.** The aim is a general method for fairs and mass gatherings (melas, temples, festivals).
+The Sangam at Prayagraj serves as a realistic test site, not as an incident reconstruction.
+
 **Approach.** We cannot test this on real crushes, so we use a pedestrian simulation of the
 Sangam nose as ground truth. We draw synthetic pings with realistic sampling and GPS error
 from the simulated crowd, and measure how well and how early density can be recovered.
@@ -33,7 +36,7 @@ Before trusting the simulation, we validate its model against controlled lab exp
 2. A validation of the JuPedSim collision-free speed model against Jülich bottleneck and
    corridor experiments. The default parameters underpredict bottleneck flow by about half;
    a two-parameter calibration brings all widths within ±15% (§5).
-3. **[TODO]** Sangam scenarios, including a reconstruction of 29 January 2025 (Phase 3).
+3. **[TODO]** Sangam test scenarios over a range of inflows (Phase 3).
 4. **[TODO]** Detection performance vs. share of users and GPS error: the main result,
    "X% of users gives Y minutes of warning" (Phase 4).
 5. **[TODO]** Effect of interventions (Phase 5).
@@ -238,8 +241,12 @@ high near 3.6/m² (Fig. 3). The real data reaches 3.9/m².
 
 ## 7. Methods for remaining phases [TODO]
 
-- **Phase 3:** Sangam scenarios over a range of inflows, and a reconstruction of 29 January 2025
-  (timing and location from public reports).
+- **Phase 3:** Sangam test scenarios (ordinary and peak bathing days) over a range of inflows,
+  with outbound flow tied to arrivals and a warm-up period. No incident reconstruction: the
+  Sangam is a test site for a general method.
+- **Two-way flow (found in Phase 3):** the calibrated CollisionFreeSpeed model fails Jülich
+  two-way corridor runs (0/18 within ±15%, flow 17–77% low, 11/18 deadlocked). Alternative
+  models are being calibrated (§5, to be extended).
 - **Phase 4:** synthetic pings drawn from the simulated agents. Variables: share of users
   (1–5%), ping interval (5–30 s), GPS error (σ = 5/10/20 m, plus outliers and dropouts),
   and map-matching to the walking network. Estimators: kernel density (after Wirz et al.)

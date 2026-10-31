@@ -1,0 +1,237 @@
+{
+    "title": "Pedestrian Dynamics Experiments Metadata",
+    "version": "2.0.0",
+    "experiment": {
+        "experiment_name": "Hermes_bidirectional_asymmetric",
+        "title": "Bidirectional flow, ordered destination, asymmetric flow rate",
+        "date_modified": "2024-02-29",
+        "date_created": "2009-05-15",
+        "date_published": "2009-01-01",
+        "publisher": "Forschungszentrum Jülich",
+        "about": "The aim of this experiment was to create a fundamental diagram for bidirectional flows of people in an open, planar system. In this experiment there was an ordered destination and an asymmetric flow.",
+        "max_participant": 219,
+        "internal_storage": "smb://smb.its.kfa-juelich.de/ias-7_ped/experiments/2009.05.12_Duesseldorf_Messe_Hermes",
+        "comment": "         ",
+        "funding": [
+            {
+                "number": "13N9952 - 13N9960",
+                "project_name": "Hermes",
+                "funder": "Federal Ministry of Education and Research (BMBF)"
+            },
+            {
+                "number": "POF1-400",
+                "project_name": "POF I",
+                "funder": "Forschungszentrum Jülich GmbH"
+            }
+        ],
+        "participants": [
+            {
+                "rolename": "random"
+            }
+        ],
+        "sensors": [
+            {
+                "category": "camera",
+                "model": "Bumblebee XB3 BBX3-13S2M",
+                "brand": "Point Grey (aquired by FLIR)"
+            }
+        ],
+        "publication": [
+            {
+                "doi": "10.34735/ped.2009.10"
+            }
+        ],
+        "persons": [
+            {
+                "given_name": "Armin",
+                "family_name": "Seyfried",
+                "orcid": "0000-0001-8888-0978",
+                "affiliations": [
+                    {
+                        "affiliation_name": "Forschungszentrum Jülich",
+                        "ror": "02nv7yv05"
+                    },
+                    {
+                        "affiliation_name": "University of Wuppertal",
+                        "ror": "00613ak93"
+                    }
+                ]
+            },
+            {
+                "given_name": "Maik",
+                "family_name": "Boltes",
+                "orcid": "0000-0001-7240-896X",
+                "affiliations": [
+                    {
+                        "affiliation_name": "Forschungszentrum Jülich",
+                        "ror": "02nv7yv05"
+                    }
+                ]
+            },
+            {
+                "given_name": "Stefan",
+                "family_name": "Holl",
+                "orcid": "                   ",
+                "affiliations": [
+                    {
+                        "affiliation_name": "Forschungszentrum Jülich",
+                        "ror": "02nv7yv05"
+                    }
+                ]
+            },
+            {
+                "given_name": "Tobias ",
+                "family_name": "Rupprecht",
+                "orcid": "                   ",
+                "affiliations": [
+                    {
+                        "affiliation_name": "University of Wuppertal",
+                        "ror": "00613ak93"
+                    }
+                ]
+            },
+            {
+                "given_name": "Andreas ",
+                "family_name": "Winkens",
+                "orcid": "                   ",
+                "affiliations": [
+                    {
+                        "affiliation_name": "University of Wuppertal",
+                        "ror": "00613ak93"
+                    }
+                ]
+            }
+        ],
+        "documentations": [
+            {
+                "name": "documentation",
+                "link": "smb://smb.its.kfa-juelich.de/ias-7_ped/experiments/2009.05.12_Duesseldorf_Messe_Hermes/docu/VersuchsdokumentationHERMES.pdf",
+                "about": ""
+            },
+            {
+                "name": "overview image",
+                "link": "smb://smb.its.kfa-juelich.de/ias-7_ped/experiments/2009.05.12_Duesseldorf_Messe_Hermes/docu/overview_image_bidirectional.png",
+                "about": "         "
+            },
+            {
+                "name": "setup_sketch",
+                "link": "smb://smb.its.kfa-juelich.de/ias-7_ped/experiments/2009.05.12_Duesseldorf_Messe_Hermes/docu/setup_sketch_bidirectional.png",
+                "about": "         "
+            }
+        ],
+        "affiliations": [
+            {
+                "affiliation_name": "Forschungszentrum Jülich",
+                "ror": "02nv7yv05"
+            },
+            {
+                "affiliation_name": "University of Wuppertal",
+                "ror": "00613ak93"
+            }
+        ],
+        "locations": [
+            {
+                "institution_name": "Messe Duesseldorf GmbH",
+                "street_address": "Stockumer Kirchstr. 61",
+                "postal_code": "40474",
+                "city": "Düsseldorf",
+                "state": "         ",
+                "country": "DE",
+                "building_name": "Hall 2"
+            }
+        ],
+        "run": [
+            {
+                "run_name": "boa-300-055-095",
+                "start_date": "2009-05-15",
+                "start_time": "12:30:28",
+                "number_participants": 128,
+                "wkt_geometry": "POLYGON ((-3.4 15, 7 15, 7 -15, -3.4 -15, -3.4 15), (3 -4, 3 4, 3.1 4, 3.1 -4, 3 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (1.775 8, 1.775 8.1, 4 8.1, 4 8, 1.775 8), (1.225 8, 1.225 8.1, -1 8.1, -1 8, 1.225 8), (1.975 -8, 1.975 -8.1, 4 -8.1, 4 -8, 1.975 -8), (1.025 -8, 1.025 -8.1, -1 -8.1, -1 -8, 1.025 -8)) ",
+                "notes": "Bottleneck widths and positions are from documentation, not visible in video for validation. Bottleneck consisted of two tables. Subjects were observed to order themselves according to assigned exit in the starting area.",
+                "parameter": {
+                    "entrance_width_1 [m]": "0.55",
+                    "entrance_width_2 [m]": "0.95",
+                    "corridor_width [m]": "3"
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "boa-300-050-070",
+                "start_date": "2009-05-15",
+                "start_time": "12:26:57",
+                "number_participants": 135,
+                "wkt_geometry": "POLYGON ((-3.4 15, 7 15, 7 -15, -3.4 -15, -3.4 15), (3 -4, 3 4, 3.1 4, 3.1 -4, 3 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (1.75 8, 1.75 8.1, 4 8.1, 4 8, 1.75 8), (1.25 8, 1.25 8.1, -1 8.1, -1 8, 1.25 8), (1.85 -8, 1.85 -8.1, 4 -8.1, 4 -8, 1.85 -8), (1.15 -8, 1.15 -8.1, -1 -8.1, -1 -8, 1.15 -8)) ",
+                "notes": "Bottleneck widths and positions are from documentation, not visible in video for validation. Bottleneck consisted of two tables. Subjects were observed to order themselves according to assigned exit in the starting area.",
+                "parameter": {
+                    "entrance_width_1 [m]": "0.5",
+                    "entrance_width_2 [m]": "0.7",
+                    "corridor_width [m]": "3"
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "boa-300-065-105",
+                "start_date": "2009-05-15",
+                "start_time": "12:32:28",
+                "number_participants": 229,
+                "wkt_geometry": "POLYGON ((-3.4 15, 7 15, 7 -15, -3.4 -15, -3.4 15), (3 -4, 3 4, 3.1 4, 3.1 -4, 3 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (1.825 8, 1.825 8.1, 4 8.1, 4 8, 1.825 8), (1.175 8, 1.175 8.1, -1 8.1, -1 8, 1.175 8), (2.025 -8, 2.025 -8.1, 4 -8.1, 4 -8, 2.025 -8), (0.975 -8, 0.975 -8.1, -1 -8.1, -1 -8, 0.975 -8)) ",
+                "notes": "Bottleneck widths and positions are from documentation, not visible in video for validation. Bottleneck consisted of two tables. Subjects were observed to order themselves according to assigned exit in the starting area.",
+                "parameter": {
+                    "entrance_width_1 [m]": "0.65",
+                    "entrance_width_2 [m]": "1.05",
+                    "corridor_width [m]": "3"
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "boa-300-080-120",
+                "start_date": "2009-05-15",
+                "start_time": "12:34:46",
+                "number_participants": 219,
+                "wkt_geometry": "POLYGON ((-3.4 15, 7 15, 7 -15, -3.4 -15, -3.4 15), (3 -4, 3 4, 3.1 4, 3.1 -4, 3 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (1.9 8, 1.9 8.1, 4 8.1, 4 8, 1.9 8), (1.1 8, 1.1 8.1, -1 8.1, -1 8, 1.1 8), (2.1 -8, 2.1 -8.1, 4 -8.1, 4 -8, 2.1 -8), (0.9 -8, 0.9 -8.1, -1 -8.1, -1 -8, 0.9 -8)) ",
+                "notes": "Bottleneck widths and positions are from documentation, not visible in video for validation. Bottleneck consisted of two tables. Subjects were observed to order themselves according to assigned exit in the starting area.",
+                "parameter": {
+                    "entrance_width_1 [m]": "0.8",
+                    "entrance_width_2 [m]": "1.2",
+                    "corridor_width [m]": "3"
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "boa-300-frei",
+                "start_date": "2009-05-15",
+                "start_time": "12:36:53",
+                "number_participants": 50,
+                "wkt_geometry": "POLYGON ((-3.4 15, 7 15, 7 -15, -3.4 -15, -3.4 15), (3 -4, 3 4, 3.1 4, 3.1 -4, 3 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (1.9 8, 1.9 8.1, 4 8.1, 4 8, 1.9 8), (1.1 8, 1.1 8.1, -1 8.1, -1 8, 1.1 8), (1.9 -8, 1.9 -8.1, 4 -8.1, 4 -8, 1.9 -8), (1.1 -8, 1.1 -8.1, -1 -8.1, -1 -8, 1.1 -8)) ",
+                "notes": "Free velocity measurement; BOF in documentation",
+                "parameter": {
+                    "entrance_width_1 [m]": "0.8",
+                    "entrance_width_2 [m]": "0.8",
+                    "corridor_width [m]": "3"
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "boa-300-050-085",
+                "start_date": "2009-05-15",
+                "start_time": "12:28:41",
+                "number_participants": 125,
+                "wkt_geometry": "POLYGON ((-3.4 15, 7 15, 7 -15, -3.4 -15, -3.4 15), (3 -4, 3 4, 3.1 4, 3.1 -4, 3 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (1.75 8, 1.75 8.1, 4 8.1, 4 8, 1.75 8), (1.25 8, 1.25 8.1, -1 8.1, -1 8, 1.25 8), (1.925 -8, 1.925 -8.1, 4 -8.1, 4 -8, 1.925 -8), (1.075 -8, 1.075 -8.1, -1 -8.1, -1 -8, 1.075 -8)) ",
+                "notes": "Bottleneck widths and positions are from documentation, not visible in video for validation. Bottleneck consisted of two tables. Subjects were observed to order themselves according to assigned exit in the starting area.",
+                "parameter": {
+                    "entrance_width_1 [m]": "0.5",
+                    "entrance_width_2 [m]": "0.85",
+                    "corridor_width [m]": "3"
+                },
+                "status": "published"
+            }
+        ],
+        "keywords": [
+            "pedestrian dynamics",
+            "experiment",
+            "camera tracking",
+            "corridor",
+            "bidirectional"
+        ]
+    }
+}

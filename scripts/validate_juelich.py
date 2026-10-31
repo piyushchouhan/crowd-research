@@ -4,6 +4,9 @@ bottleneck: 2006 Caserne bottleneck series (DOI 10.34735/ped.2006.2), widths 0.9
             Compares the flow through the bottleneck (N-t at a line across its middle).
 corridor:   2009 Hermes unidirectional corridor, open boundary (DOI 10.34735/ped.2009.14).
             Compares Voronoi speed against density in a 2 m area mid-corridor.
+bidirectional: 2009 Hermes two-way corridor, symmetric and asymmetric series
+            (DOI 10.34735/ped.2009.11, 10.34735/ped.2009.10). Compares the flow through the
+            corridor's middle (both directions), speed-density, and deadlocks.
 
 Real and simulated trajectories go through the same PedPy functions. Model and agent
 parameters come from config/sim.json, the same as the Sangam runs; --set overrides
@@ -83,6 +86,23 @@ def corridor_runs():
             yield r["run_name"], r, f
 
 
+def bidirectional_runs():
+    """Hermes 2009 two-way corridor, symmetric and asymmetric series (the free-movement run is skipped)."""
+    for folder in ["bidir_symmetric", "bidir_asymmetric"]:
+        for r in json.load(open(DATA / folder / "metadata.json"))["experiment"]["run"]:
+            f = DATA / folder / f"{r['run_name']}.txt"
+            if f.exists() and "frei" not in r["run_name"]:
+                # How many walked each way is not in the metadata; take it from the trajectories.
+                d = np.loadtxt(f, usecols=(0, 3))
+                first, last = {}, {}
+                for pid, y in d:
+                    first.setdefault(pid, y)
+                    last[pid] = y
+                r["n_down"] = sum(last[p] < first[p] for p in first)
+                r["n_up"] = len(first) - r["n_down"]
+                yield r["run_name"], r, f
+
+
 def bottleneck_setup(run, rng):
     """Floor of floor_width, people waiting bottleneck_distance before a b x l bottleneck at y=0."""
     p = run["parameters"]
@@ -94,7 +114,7 @@ def bottleneck_setup(run, rng):
                               box(-4, l, 4, l + 5)])
     goal = box(-3.8, l + 4.2, 3.8, l + 4.9)
     line = pedpy.MeasurementLine([(-b / 2, l / 2), (b / 2, l / 2)])
-    return walk, start, goal, {"line": line, "width_m": b}
+    return walk, [(start, [goal])], {"line": line, "width_m": b}
 
 
 def corridor_setup(run, rng):
@@ -106,29 +126,81 @@ def corridor_setup(run, rng):
     walk = walk.difference(box(-3.1, -7.3, 0, 4)).difference(box(width, -7.3, 4.8, 4))
     walk = max(getattr(walk, "geoms", [walk]), key=lambda g: g.area)
     goal = box(0.05, -7.1, width - 0.05, -6.6).intersection(walk)
-    return walk, start, goal, {"width_m": width}
+    return walk, [(start, [goal])], {"width_m": width}
+
+
+def bidirectional_setup(run, rng):
+    """Two groups start behind entrances at y=+8 and y=-8, cross in the corridor (x 0..W, y -4..4)
+    and leave sideways through exits at the far ends of the floor (x=-3.4 and x=7)."""
+    width = float(run["parameter"]["corridor_width [m]"].rstrip("m"))
+    walk = wkt.loads(run["wkt_geometry"])
+    x0, _, x1, _ = walk.exterior.bounds
+    # The archive polygon only has the entrance walls; close the rest of y=+-8 and the floor
+    # beside the corridor so the holding areas connect to the corridor through the entrances only.
+    ent = [h for h in walk.interiors if 7.9 <= abs(shapely.Polygon(h).centroid.y) <= 8.2]
+    wx0 = min(shapely.Polygon(h).bounds[0] for h in ent)
+    wx1 = max(shapely.Polygon(h).bounds[2] for h in ent)
+    for y in (8, -8.1):
+        walk = walk.difference(box(x0 - 0.1, y, wx0, y + 0.1)).difference(box(wx1, y, x1 + 0.1, y + 0.1))
+    walk = walk.difference(box(x0 - 0.1, -4, 0, 4)).difference(box(width, -4, x1 + 0.1, 4))
+    top, d_top = lattice(x0 + 0.2, x1 - 0.2, 8.3, run["n_down"], 1, rng)
+    bottom, d_bot = lattice(x0 + 0.2, x1 - 0.2, -8.3, run["n_up"], -1, rng)
+    # Holding areas deep enough for everyone at START_DENSITY (the archive floor can be shorter).
+    walk = walk.union(box(x0, 8.1, x1, 8.3 + d_top + 1)).union(box(x0, -8.3 - d_bot - 1, x1, -8.1))
+    walk = max(getattr(walk, "geoms", [walk]), key=lambda g: g.area)
+    side = lambda y0, y1: [box(x0 + 0.05, y0, x0 + 0.5, y1), box(x1 - 0.5, y0, x1 - 0.05, y1)]
+    line = pedpy.MeasurementLine([(0, 0), (width, 0)])
+    return walk, [(top, side(-7.8, -4.3)), (bottom, side(4.3, 7.8))], {"line": line, "width_m": width}
 
 
 # --- simulation --------------------------------------------------------------------
 
-def simulate(walk, start, goal, fps, out_file, cfg, rng):
-    """Run until everyone has left. Frames are written at the real data's frame rate."""
-    writer = jps.SqliteTrajectoryWriter(output_file=out_file, every_nth_frame=2)
-    sim = jps.Simulation(model=jps.CollisionFreeSpeedModel(**cfg["model"]), geometry=walk,
-                         dt=1 / (2 * fps), trajectory_writer=writer)
-    exit_id = sim.add_exit_stage(goal)
-    journey = sim.add_journey(jps.JourneyDescription([exit_id]))
-    sp, ag = cfg["agents"]["desired_speed_mps"], cfg["agents"]
-    for p in start:
-        sim.add_agent(jps.CollisionFreeSpeedModelAgentParameters(
-            journey_id=journey, stage_id=exit_id, position=tuple(p),
-            desired_speed=float(np.clip(rng.normal(sp["mean"], sp["sd"]), sp["min"], sp["max"])),
-            radius=ag["radius_m"], time_gap=ag["time_gap_s"]))
-    while sim.agent_count() and sim.elapsed_time() < MAX_SIM_S:
-        sim.iterate()
+MODELS = {  # name: (model class, agent parameter class, time steps per written frame)
+    "collision_free": (jps.CollisionFreeSpeedModel, jps.CollisionFreeSpeedModelAgentParameters, 2),
+    "anticipation_velocity": (jps.AnticipationVelocityModel, jps.AnticipationVelocityModelAgentParameters, 2),
+    # Force-based models need a smaller time step to stay stable.
+    "social_force": (jps.SocialForceModel, jps.SocialForceModelAgentParameters, 6),
+    "generalized_centrifugal_force": (jps.GeneralizedCentrifugalForceModel,
+                                      jps.GeneralizedCentrifugalForceModelAgentParameters, 6),
+}
+
+
+def model_params(name, cfg):
+    """(model kwargs, agent kwargs) for a model; CollisionFreeSpeed uses the main config blocks."""
+    if name == "collision_free":
+        return cfg["model"], {"radius": cfg["agents"]["radius_m"], "time_gap": cfg["agents"]["time_gap_s"]}
+    v = cfg["model_variants"][name]
+    return v["model"], v["agent"]
+
+
+def simulate(walk, groups, fps, out_file, cfg, rng, model="collision_free"):
+    """Run until everyone has left. groups: [(start positions, [exit polygons])]; a group with
+    several exits splits evenly between them. Frames are written at the real data's frame rate."""
+    model_cls, agent_cls, steps = MODELS[model]
+    model_kw, agent_kw = model_params(model, cfg)
+    writer = jps.SqliteTrajectoryWriter(output_file=out_file, every_nth_frame=steps)
+    sim = jps.Simulation(model=model_cls(**model_kw), geometry=walk, dt=1 / (steps * fps),
+                         trajectory_writer=writer)
+    sp = cfg["agents"]["desired_speed_mps"]
+    for start, goals in groups:
+        exits = [sim.add_exit_stage(g) for g in goals]
+        journeys = [sim.add_journey(jps.JourneyDescription([e])) for e in exits]
+        for k, p in enumerate(start):
+            sim.add_agent(agent_cls(
+                journey_id=journeys[k % len(exits)], stage_id=exits[k % len(exits)], position=tuple(p),
+                desired_speed=float(np.clip(rng.normal(sp["mean"], sp["sd"]), sp["min"], sp["max"])),
+                **agent_kw))
+    crashed = False
+    try:
+        while sim.agent_count() and sim.elapsed_time() < MAX_SIM_S:
+            sim.iterate()
+    except RuntimeError as e:
+        # Force-based models can push an agent through a wall; JuPedSim then stops.
+        print(f"  crashed at {sim.elapsed_time():.0f}s: {e}", flush=True)
+        crashed = True
     stuck = sim.agent_count()
     writer.close()
-    return stuck
+    return max(stuck, 1) if crashed else stuck
 
 
 # --- measurements (identical for real and simulated) --------------------------------
@@ -143,6 +215,8 @@ def bottleneck_flow(traj, line):
     _, crossing = pedpy.compute_n_t(traj_data=traj, measurement_line=line)
     t = np.sort(crossing[pedpy.FRAME_COL].to_numpy()) / traj.frame_rate
     k0, k1 = int(STEADY[0] * len(t)), int(STEADY[1] * len(t)) - 1
+    if k1 - k0 < 5 or t[k1] <= t[k0]:
+        return 0.0, t - (t[0] if len(t) else 0)  # too few crossings (e.g. a run that crashed early)
     return (k1 - k0) / (t[k1] - t[k0]), t - t[0]
 
 
@@ -152,6 +226,8 @@ def corridor_fd(traj, width):
     speed = pedpy.compute_individual_speed(traj_data=traj, frame_step=max(1, round(fps * SPEED_WINDOW_S / 2)))
     df = traj.data
     keep = (df.x > 0) & (df.x < width) & (df.y > -4) & (df.y < 4) & (df.frame % VORONOI_EVERY == 0)
+    if keep.sum() < 10:
+        return np.empty((0, 2))  # nobody reached the corridor (e.g. a run that crashed early)
     inside = pedpy.TrajectoryData(data=df[keep].reset_index(drop=True), frame_rate=fps)
     area = pedpy.MeasurementArea(box(0, -1, width, 1))
     cells = pedpy.compute_individual_voronoi_polygons(
@@ -177,12 +253,32 @@ def binned_speed(samples):
 
 # --- per dataset -------------------------------------------------------------------
 
+DATASETS = {  # kind: (runs, setup, fps)
+    "bottleneck": (bottleneck_runs, bottleneck_setup, 25),
+    "corridor": (corridor_runs, corridor_setup, 16),
+    "bidirectional": (bidirectional_runs, bidirectional_setup, 16),
+}
+
+
+def flow_row(real, sims, line, stuck):
+    """Flow through a line, real vs mean of seeds, with the ±TOLERANCE / no-deadlock pass rule."""
+    j_real, t_real = bottleneck_flow(real, line)
+    flows = [bottleneck_flow(s, line) for s in sims]
+    j_sim = np.array([j for j, _ in flows])
+    err = j_sim.mean() / j_real - 1
+    # Agents still inside after MAX_SIM_S means a permanent clog: real crowds do not do that.
+    deadlock = any(stuck)
+    row = {"flow_real_ps": round(j_real, 3), "flow_sim_ps": round(float(j_sim.mean()), 3),
+           "flow_sim_sd": round(float(j_sim.std()), 3), "error": round(float(err), 3),
+           "deadlock": deadlock, "pass": bool(abs(err) <= TOLERANCE and not deadlock)}
+    return row, t_real, flows[0][1]
+
+
 def run_dataset(kind, args, cfg, out_dir):
-    runs = list(bottleneck_runs() if kind == "bottleneck" else corridor_runs())
+    get_runs, setup, fps = DATASETS[kind]
+    runs = list(get_runs())
     if args.runs:
         runs = [r for r in runs if r[0] in args.runs]
-    setup = bottleneck_setup if kind == "bottleneck" else corridor_setup
-    fps = 25 if kind == "bottleneck" else 16
     sim_dir = out_dir / "sim"
     sim_dir.mkdir(parents=True, exist_ok=True)
     rows, nt, fd_real, fd_sim = [], {}, [], []
@@ -192,29 +288,23 @@ def run_dataset(kind, args, cfg, out_dir):
         sims, stuck = [], []
         for seed in range(args.seeds):
             rng = np.random.default_rng(seed)
-            walk, start, goal, info = setup(run, rng)
+            walk, groups, info = setup(run, rng)
             f = sim_dir / f"{name}_s{seed}.sqlite"
             if not (args.reuse and f.exists()):
                 f.unlink(missing_ok=True)
-                stuck.append(simulate(walk, start, goal, fps, f, cfg, rng))
+                stuck.append(simulate(walk, groups, fps, f, cfg, rng, args.model))
             sims.append(pedpy.load_trajectory_from_jupedsim_sqlite(trajectory_file=f))
             if not args.keep_sim:
                 f.unlink()  # a full run's trajectories take gigabytes
         row = {"run": name, "n": run["number_participants"], "width_m": info["width_m"], "stuck": stuck}
-        if kind == "bottleneck":
-            j_real, t_real = bottleneck_flow(real, info["line"])
-            flows = [bottleneck_flow(s, info["line"]) for s in sims]
-            j_sim = np.array([j for j, _ in flows])
-            err = j_sim.mean() / j_real - 1
-            # Agents still inside after MAX_SIM_S means a permanent clog: real crowds do not do that.
-            deadlock = any(stuck)
-            row.update({"flow_real_ps": round(j_real, 3), "flow_sim_ps": round(float(j_sim.mean()), 3),
-                        "flow_sim_sd": round(float(j_sim.std()), 3), "error": round(float(err), 3),
-                        "deadlock": deadlock, "pass": bool(abs(err) <= TOLERANCE and not deadlock)})
-            nt[name] = (info["width_m"], t_real, flows[0][1])
-            print(f"{name}: b={info['width_m']} m  real {j_real:.2f}/s  sim {j_sim.mean():.2f}±{j_sim.std():.2f}/s "
-                  f"({err:+.0%}){'  DEADLOCK' if deadlock else ''}  {time.time() - t0:.0f}s", flush=True)
-        else:
+        if kind in ("bottleneck", "bidirectional"):
+            fr, t_real, t_sim = flow_row(real, sims, info["line"], stuck)
+            row.update(fr)
+            nt[name] = (info["width_m"], t_real, t_sim)
+            print(f"{name}: w={info['width_m']} m  real {fr['flow_real_ps']:.2f}/s  sim {fr['flow_sim_ps']:.2f}"
+                  f"±{fr['flow_sim_sd']:.2f}/s ({fr['error']:+.0%}){'  DEADLOCK' if fr['deadlock'] else ''}  "
+                  f"{time.time() - t0:.0f}s", flush=True)
+        if kind in ("corridor", "bidirectional"):
             r = corridor_fd(real, info["width_m"])
             s = np.vstack([corridor_fd(x, info["width_m"]) for x in sims])
             fd_real.append(r)
@@ -227,7 +317,9 @@ def run_dataset(kind, args, cfg, out_dir):
         rows.append(row)
     if kind == "bottleneck":
         return summarize_bottleneck(rows, nt, cfg, out_dir)
-    return summarize_corridor(rows, np.vstack(fd_real), np.vstack(fd_sim), out_dir)
+    if kind == "corridor":
+        return summarize_corridor(rows, np.vstack(fd_real), np.vstack(fd_sim), out_dir)
+    return summarize_bidirectional(rows, np.vstack(fd_real), np.vstack(fd_sim), out_dir)
 
 
 def summarize_bottleneck(rows, nt, cfg, out_dir):
@@ -271,7 +363,37 @@ def summarize_bottleneck(rows, nt, cfg, out_dir):
             "pass": bool(all(r["pass"] for r in rows))}
 
 
-def summarize_corridor(rows, real, sim, out_dir):
+def summarize_bidirectional(rows, real, sim, out_dir):
+    jr = np.array([r["flow_real_ps"] for r in rows])
+    js = np.array([r["flow_sim_ps"] for r in rows])
+    fig, ax = plt.subplots(figsize=(6, 6))
+    top = max(jr.max(), js.max()) * 1.1
+    ax.fill_between([0, top], [0, top * (1 - TOLERANCE)], [0, top * (1 + TOLERANCE)], color="grey", alpha=0.15,
+                    label="±15%")
+    ax.plot([0, top], [0, top], "k:", lw=1)
+    dl = np.array([r["deadlock"] for r in rows])
+    ax.errorbar(jr[~dl], js[~dl], yerr=[r["flow_sim_sd"] for r, d in zip(rows, dl) if not d], fmt="s",
+                color="tab:orange", capsize=3, label="run (mean ± sd)")
+    if dl.any():
+        ax.plot(jr[dl], js[dl], "rx", ms=9, label="run with deadlock")
+    ax.set_xlabel("real flow, both directions [people/s]")
+    ax.set_ylabel("simulated flow [people/s]")
+    ax.set_title("Two-way corridor: flow through the middle")
+    ax.legend()
+    fig.savefig(out_dir / "bidir_flow.png", dpi=110, bbox_inches="tight")
+
+    out = summarize_corridor(rows, real, sim, out_dir, "bidir_speed_density.png",
+                             "Speed–density, two-way corridor")
+    errs = np.array([r["error"] for r in rows])
+    out.update({"flow_mean_abs_error": round(float(np.abs(errs).mean()), 3),
+                "flow_max_abs_error": round(float(np.abs(errs).max()), 3),
+                "runs_passing": int(sum(r["pass"] for r in rows)), "runs_total": len(rows),
+                "runs_deadlocked": int(dl.sum()), "pass": bool(all(r["pass"] for r in rows))})
+    return out
+
+
+def summarize_corridor(rows, real, sim, out_dir, filename="speed_density.png",
+                       title="Speed–density, unidirectional corridor"):
     br, bs = binned_speed(real), binned_speed(sim)
     common = sorted(d for d in set(br) & set(bs) if d >= MIN_FD_DENSITY)
     diffs = {d: round(bs[d][0] / br[d][0] - 1, 3) for d in common}
@@ -285,9 +407,9 @@ def summarize_corridor(rows, real, sim, out_dir):
     ax.set_ylabel("Voronoi speed [m/s]")
     ax.set_xlim(0, 6)
     ax.set_ylim(0, 2)
-    ax.set_title("Speed–density, unidirectional corridor")
+    ax.set_title(title)
     ax.legend(markerscale=4)
-    fig.savefig(out_dir / "speed_density.png", dpi=110, bbox_inches="tight")
+    fig.savefig(out_dir / filename, dpi=110, bbox_inches="tight")
 
     return {"runs": rows, "bins": [{"density": d, "speed_real": round(br[d][0], 3), "speed_sim": round(bs[d][0], 3),
                                     "n_real": br[d][1], "n_sim": bs[d][1], "error": diffs[d]} for d in common],
@@ -297,7 +419,8 @@ def summarize_corridor(rows, real, sim, out_dir):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dataset", choices=["bottleneck", "corridor", "all"], default="all")
+    ap.add_argument("--dataset", choices=[*DATASETS, "all"], default="all")
+    ap.add_argument("--model", choices=list(MODELS), default="collision_free")
     ap.add_argument("--seeds", type=int, default=5)
     ap.add_argument("--runs", nargs="*", help="only these run names, e.g. b100 uo-180-180-180")
     ap.add_argument("--set", nargs="*", default=[], help="config overrides, e.g. agents.time_gap_s=0.8")
@@ -309,9 +432,11 @@ def main():
     out = ROOT / "out" / "validation" / args.name
     out.mkdir(parents=True, exist_ok=True)
 
-    summary = {"model": cfg["model"], "agents": cfg["agents"], "overrides": args.set, "seeds": args.seeds,
+    model_kw, agent_kw = model_params(args.model, cfg)
+    summary = {"model_name": args.model, "model": model_kw, "agent": agent_kw, "agents": cfg["agents"],
+               "overrides": args.set, "seeds": args.seeds,
                "tolerance": TOLERANCE, "start_density_ppm2": START_DENSITY}
-    for kind in (["bottleneck", "corridor"] if args.dataset == "all" else [args.dataset]):
+    for kind in (list(DATASETS) if args.dataset == "all" else [args.dataset]):
         summary[kind] = run_dataset(kind, args, cfg, out)
     (out / "summary.json").write_text(json.dumps(summary, indent=1, default=float))
     if "bottleneck" in summary:
@@ -322,6 +447,11 @@ def main():
     if "corridor" in summary and summary["corridor"]["mean_abs_error"] is not None:
         print(f"corridor: mean |speed error| per density bin (>= {MIN_FD_DENSITY}/m²) "
               f"{summary['corridor']['mean_abs_error']:.0%}")
+    if "bidirectional" in summary:
+        s = summary["bidirectional"]
+        print(f"bidirectional: {s['runs_passing']}/{s['runs_total']} runs within ±{TOLERANCE:.0%}, "
+              f"mean |flow error| {s['flow_mean_abs_error']:.0%}, deadlocked runs {s['runs_deadlocked']}, "
+              f"speed error per density bin {s['mean_abs_error']}")
 
 
 if __name__ == "__main__":

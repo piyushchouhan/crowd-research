@@ -1,0 +1,348 @@
+{
+    "title": "Pedestrian Dynamics Experiments Metadata",
+    "version": "2.0.0",
+    "experiment": {
+        "experiment_name": "Hermes_bidirectional_symmetric",
+        "title": "Bidirectional flow, ordered destination, symmetric flow rate",
+        "date_modified": "2024-02-29",
+        "date_created": "2009-05-15",
+        "date_published": "2009-01-01",
+        "publisher": "Forschungszentrum Jülich",
+        "about": "The aim of this experiment was to create a fundamental diagram for bidirectional flows of people in an open, planar system. In this experiment there was an ordered destination and a symmetric flow.",
+        "max_participant": 309,
+        "internal_storage": "smb://smb.its.kfa-juelich.de/ias-7_ped/experiments/2009.05.12_Duesseldorf_Messe_Hermes",
+        "comment": "Participants were split evenly between entrances",
+        "funding": [
+            {
+                "number": "13N9952 - 13N9960",
+                "project_name": "Hermes",
+                "funder": "Federal Ministry of Education and Research (BMBF)"
+            },
+            {
+                "number": "POF1-400",
+                "project_name": "POF I",
+                "funder": "Forschungszentrum Jülich GmbH"
+            }
+        ],
+        "participants": [
+            {
+                "rolename": "random"
+            }
+        ],
+        "sensors": [
+            {
+                "category": "camera",
+                "model": "Bumblebee XB3 BBX3-13S2M",
+                "brand": "Point Grey (aquired by FLIR)"
+            }
+        ],
+        "publication": [
+            {
+                "doi": "10.34735/ped.2009.11"
+            }
+        ],
+        "persons": [
+            {
+                "given_name": "Armin",
+                "family_name": "Seyfried",
+                "orcid": "0000-0001-8888-0978",
+                "affiliations": [
+                    {
+                        "affiliation_name": "Forschungszentrum Jülich",
+                        "ror": "02nv7yv05"
+                    },
+                    {
+                        "affiliation_name": "University of Wuppertal",
+                        "ror": "00613ak93"
+                    }
+                ]
+            },
+            {
+                "given_name": "Maik",
+                "family_name": "Boltes",
+                "orcid": "0000-0001-7240-896X",
+                "affiliations": [
+                    {
+                        "affiliation_name": "Forschungszentrum Jülich",
+                        "ror": "02nv7yv05"
+                    }
+                ]
+            },
+            {
+                "given_name": "Stefan",
+                "family_name": "Holl",
+                "orcid": "                   ",
+                "affiliations": [
+                    {
+                        "affiliation_name": "Forschungszentrum Jülich",
+                        "ror": "02nv7yv05"
+                    }
+                ]
+            },
+            {
+                "given_name": "Tobias ",
+                "family_name": "Rupprecht",
+                "orcid": "                   ",
+                "affiliations": [
+                    {
+                        "affiliation_name": "University of Wuppertal",
+                        "ror": "00613ak93"
+                    }
+                ]
+            },
+            {
+                "given_name": "Andreas ",
+                "family_name": "Winkens",
+                "orcid": "                   ",
+                "affiliations": [
+                    {
+                        "affiliation_name": "University of Wuppertal",
+                        "ror": "00613ak93"
+                    }
+                ]
+            }
+        ],
+        "documentations": [
+            {
+                "name": "documentation",
+                "link": "smb://smb.its.kfa-juelich.de/ias-7_ped/experiments/2009.05.12_Duesseldorf_Messe_Hermes/docu/VersuchsdokumentationHERMES.pdf",
+                "about": ""
+            },
+            {
+                "name": "overview image",
+                "link": "smb://smb.its.kfa-juelich.de/ias-7_ped/experiments/2009.05.12_Duesseldorf_Messe_Hermes/docu/overview_image_bidirectional.png",
+                "about": "         "
+            },
+            {
+                "name": "setup_sketch",
+                "link": "smb://smb.its.kfa-juelich.de/ias-7_ped/experiments/2009.05.12_Duesseldorf_Messe_Hermes/docu/setup_sketch_bidirectional.png",
+                "about": "         "
+            }
+        ],
+        "affiliations": [
+            {
+                "affiliation_name": "Forschungszentrum Jülich",
+                "ror": "02nv7yv05"
+            },
+            {
+                "affiliation_name": "University of Wuppertal",
+                "ror": "00613ak93"
+            }
+        ],
+        "locations": [
+            {
+                "institution_name": "Messe Duesseldorf GmbH",
+                "street_address": "Stockumer Kirchstr. 61",
+                "postal_code": "40474",
+                "city": "Düsseldorf",
+                "state": "         ",
+                "country": "DE",
+                "building_name": "Hall 2"
+            }
+        ],
+        "run": [
+            {
+                "run_name": "bot-360-160-160",
+                "start_date": "2009-05-15",
+                "start_time": "11:59:00",
+                "number_participants": 306,
+                "wkt_geometry": "POLYGON ((-3.4 15, 7 15, 7 -15, -3.4 -15, -3.4 15), (3.6 -4, 3.6 4, 3.7 4, 3.7 -4, 3.6 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (2.6 8, 2.6 8.1, 4.3 8.1, 4.3 8, 2.6 8), (1 8, 1 8.1, -0.7 8.1, -0.7 8, 1 8), (2.6 -8, 2.6 -8.1, 4.3 -8.1, 4.3 -8, 2.6 -8), (1 -8, 1 -8.1, -0.7 -8.1, -0.7 -8, 1 -8)) ",
+                "notes": null,
+                "parameter": {
+                    "corridor_width [m]": "3.6",
+                    "entrance_1_width [m]": "1.6",
+                    "entrance_2_width [m]": "1.6",
+                    "instructions": "no free choice of exit: participants with even participant numbers were instructed to use the right exit, uneven numbers the left exit"
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "bot-360-250-250",
+                "start_date": "2009-05-15",
+                "start_time": "12:06:00",
+                "number_participants": 304,
+                "wkt_geometry": "POLYGON ((-2.4 11, 6 11, 6 -11, -2.4 -11, -2.4 11), (3.6 -4, 3.6 4, 3.7 4, 3.7 -4, 3.6 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (3.05 8, 3.05 8.1, 4.75 8.1, 4.75 8, 3.05 8), (0.55 8, 0.55 8.1, -1.15 8.1, -1.15 8, 0.55 8), (3.05 -8, 3.05 -8.1, 4.75 -8.1, 4.75 -8, 3.05 -8), (0.55 -8, 0.55 -8.1, -1.15 -8.1, -1.15 -8, 0.55 -8))",
+                "notes": "no free choice of exit: participants where assigned to an exit based on their participant number",
+                "parameter": {
+                    "corridor_width [m]": "3.6",
+                    "entrance_1_width [m]": "2.5",
+                    "entrance_2_width [m]": "2.5",
+                    "instructions": "no free choice of exit: participants with even participant numbers were instructed to use the right exit, uneven numbers the left exit"
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "bot-360-120-120",
+                "start_date": "2009-05-15",
+                "start_time": "11:56:00",
+                "number_participants": 309,
+                "wkt_geometry": "POLYGON ((-3.4 15, 7 15, 7 -15, -3.4 -15, -3.4 15), (3.6 -4, 3.6 4, 3.7 4, 3.7 -4, 3.6 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (2.4 8, 2.4 8.1, 4.3 8.1, 4.3 8, 2.4 8), (1.2 8, 1.2 8.1, -0.7 8.1, -0.7 8, 1.2 8), (2.4 -8, 2.4 -8.1, 4.3 -8.1, 4.3 -8, 2.4 -8), (1.2 -8, 1.2 -8.1, -0.7 -8.1, -0.7 -8, 1.2 -8)) ",
+                "notes": null,
+                "parameter": {
+                    "corridor_width [m]": "3.6",
+                    "entrance_1_width [m]": "1.2",
+                    "entrance_2_width [m]": "1.2",
+                    "instructions": "no free choice of exit: participants with even participant numbers were instructed to use the right exit, uneven numbers the left exit"
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "bot-360-120-120v2",
+                "start_date": "2009-05-15",
+                "start_time": "12:02:00",
+                "number_participants": 221,
+                "wkt_geometry": "POLYGON ((-3.4 15, 7 15, 7 -15, -3.4 -15, -3.4 15), (3.6 -4, 3.6 4, 3.7 4, 3.7 -4, 3.6 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (2.4 8, 2.4 8.1, 4.3 8.1, 4.3 8, 2.4 8), (1.2 8, 1.2 8.1, -0.7 8.1, -0.7 8, 1.2 8), (2.4 -8, 2.4 -8.1, 4.3 -8.1, 4.3 -8, 2.4 -8), (1.2 -8, 1.2 -8.1, -0.7 -8.1, -0.7 -8, 1.2 -8)) ",
+                "notes": "repetition of bot-360-120-120 but with fewer participants",
+                "parameter": {
+                    "corridor_width [m]": "3.6",
+                    "entrance_1_width [m]": "1.2",
+                    "entrance_2_width [m]": "1.2",
+                    "instructions": "no free choice of exit: participants with even participant numbers were instructed to use the right exit, uneven numbers the left exit"
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "bot-360-200-200",
+                "start_date": "2009-05-15",
+                "start_time": "12:04:00",
+                "number_participants": 308,
+                "wkt_geometry": "POLYGON ((-2.4 11, 6 11, 6 -11, -2.4 -11, -2.4 11), (3.6 -4, 3.6 4, 3.7 4, 3.7 -4, 3.6 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (2.8 8, 2.8 8.1, 4.5 8.1, 4.5 8, 2.8 8), (0.8 8, 0.8 8.1, -0.9 8.1, -0.9 8, 0.8 8), (2.8 -8, 2.8 -8.1, 4.5 -8.1, 4.5 -8, 2.8 -8), (0.8 -8, 0.8 -8.1, -0.9 -8.1, -0.9 -8, 0.8 -8))",
+                "notes": null,
+                "parameter": {
+                    "corridor_width [m]": "3.6",
+                    "entrance_1_width [m]": "2",
+                    "entrance_2_width [m]": "2",
+                    "instructions": "no free choice of exit: participants with even participant numbers were instructed to use the right exit, uneven numbers the left exit"
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "bot-300-075-075",
+                "start_date": "2009-05-15",
+                "start_time": "12:19:00",
+                "number_participants": 147,
+                "wkt_geometry": "POLYGON ((-2.4 11, 6 11, 6 -11, -2.4 -11, -2.4 11), (3 -4, 3 4, 3.1 4, 3.1 -4, 3 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (1.875 8, 1.875 8.1, 3.575 8.1, 3.575 8, 1.875 8), (1.125 8, 1.125 8.1, -0.575 8.1, -0.575 8, 1.125 8), (1.875 -8, 1.875 -8.1, 3.575 -8.1, 3.575 -8, 1.875 -8), (1.125 -8, 1.125 -8.1, -0.575 -8.1, -0.575 -8, 1.125 -8))",
+                "notes": null,
+                "parameter": {
+                    "corridor_width [m]": "3",
+                    "entrance_1_width [m]": "0.75",
+                    "entrance_2_width [m]": "0.75",
+                    "instructions": ""
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "bot-300-085-085",
+                "start_date": "2009-05-15",
+                "start_time": "12:21:00",
+                "number_participants": 216,
+                "wkt_geometry": "POLYGON ((-2.4 11, 6 11, 6 -11, -2.4 -11, -2.4 11), (3 -4, 3 4, 3.1 4, 3.1 -4, 3 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (1.925 8, 1.925 8.1, 3.625 8.1, 3.625 8, 1.925 8), (1.075 8, 1.075 8.1, -0.625 8.1, -0.625 8, 1.075 8), (1.925 -8, 1.925 -8.1, 3.625 -8.1, 3.625 -8, 1.925 -8), (1.075 -8, 1.075 -8.1, -0.625 -8.1, -0.625 -8, 1.075 -8))",
+                "notes": null,
+                "parameter": {
+                    "corridor_width [m]": "3",
+                    "entrance_1_width [m]": "0.85",
+                    "entrance_2_width [m]": "0.85",
+                    "instructions": ""
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "bot-300-100-100",
+                "start_date": "2009-05-15",
+                "start_time": "12:24:00",
+                "number_participants": 230,
+                "wkt_geometry": "POLYGON ((-2.4 11, 6 11, 6 -11, -2.4 -11, -2.4 11), (3 -4, 3 4, 3.1 4, 3.1 -4, 3 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (2 8, 2 8.1, 3.7 8.1, 3.7 8, 2 8), (1 8, 1 8.1, -0.7 8.1, -0.7 8, 1 8), (2 -8, 2 -8.1, 3.7 -8.1, 3.7 -8, 2 -8), (1 -8, 1 -8.1, -0.7 -8.1, -0.7 -8, 1 -8))",
+                "notes": null,
+                "parameter": {
+                    "corridor_width [m]": "3",
+                    "entrance_1_width [m]": "1",
+                    "entrance_2_width [m]": "1",
+                    "instructions": ""
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "bot-360-050-050",
+                "start_date": "2009-05-15",
+                "start_time": "11:48:00",
+                "number_participants": 130,
+                "wkt_geometry": "POLYGON ((-3.4 15, 7 15, 7 -15, -3.4 -15, -3.4 15), (3.6 -4, 3.6 4, 3.7 4, 3.7 -4, 3.6 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (2.05 8, 2.05 8.1, 4.3 8.1, 4.3 8, 2.05 8), (1.55 8, 1.55 8.1, -0.7 8.1, -0.7 8, 1.55 8), (2.05 -8, 2.05 -8.1, 4.3 -8.1, 4.3 -8, 2.05 -8), (1.55 -8, 1.55 -8.1, -0.7 -8.1, -0.7 -8, 1.55 -8))",
+                "notes": null,
+                "parameter": {
+                    "corridor_width [m]": "3.6",
+                    "entrance_1_width [m]": "0.5",
+                    "entrance_2_width [m]": "0.5",
+                    "instructions": "no free choice of exit: participants with even participant numbers were instructed to use the right exit, uneven numbers the left exit"
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "bot-360-075-075",
+                "start_date": "2009-05-15",
+                "start_time": "11:51:00",
+                "number_participants": 127,
+                "wkt_geometry": "POLYGON ((-3.4 15, 7 15, 7 -15, -3.4 -15, -3.4 15), (3.6 -4, 3.6 4, 3.7 4, 3.7 -4, 3.6 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (2.175 8, 2.175 8.1, 4.3 8.1, 4.3 8, 2.175 8), (1.425 8, 1.425 8.1, -0.7 8.1, -0.7 8, 1.425 8), (2.175 -8, 2.175 -8.1, 4.3 -8.1, 4.3 -8, 2.175 -8), (1.425 -8, 1.425 -8.1, -0.7 -8.1, -0.7 -8, 1.425 -8))",
+                "notes": null,
+                "parameter": {
+                    "corridor_width [m]": "3.6",
+                    "entrance_1_width [m]": "0.75",
+                    "entrance_2_width [m]": "0.75",
+                    "instructions": "no free choice of exit: participants with even participant numbers were instructed to use the right exit, uneven numbers the left exit"
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "bot-360-090-090",
+                "start_date": "2009-05-15",
+                "start_time": "11:53:00",
+                "number_participants": 212,
+                "wkt_geometry": "POLYGON ((-3.4 15, 7 15, 7 -15, -3.4 -15, -3.4 15), (3.6 -4, 3.6 4, 3.7 4, 3.7 -4, 3.6 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (2.25 8, 2.25 8.1, 4.3 8.1, 4.3 8, 2.25 8), (1.35 8, 1.35 8.1, -0.7 8.1, -0.7 8, 1.35 8), (2.25 -8, 2.25 -8.1, 4.3 -8.1, 4.3 -8, 2.25 -8), (1.35 -8, 1.35 -8.1, -0.7 -8.1, -0.7 -8, 1.35 -8)) ",
+                "notes": null,
+                "parameter": {
+                    "corridor_width [m]": "3.6",
+                    "entrance_1_width [m]": "0.9",
+                    "entrance_2_width [m]": "0.9",
+                    "instructions": "no free choice of exit: participants with even participant numbers were instructed to use the right exit, uneven numbers the left exit"
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "bot-300-050-050",
+                "start_date": "2009-05-15",
+                "start_time": "12:13:00",
+                "number_participants": 125,
+                "wkt_geometry": "POLYGON ((-2.4 11, 6 11, 6 -11, -2.4 -11, -2.4 11), (3 -4, 3 4, 3.1 4, 3.1 -4, 3 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (1.75 8, 1.75 8.1, 3.45 8.1, 3.45 8, 1.75 8), (1.25 8, 1.25 8.1, -0.45 8.1, -0.45 8, 1.25 8), (1.75 -8, 1.75 -8.1, 3.45 -8.1, 3.45 -8, 1.75 -8), (1.25 -8, 1.25 -8.1, -0.45 -8.1, -0.45 -8, 1.25 -8))",
+                "notes": null,
+                "parameter": {
+                    "corridor_width [m]": "3",
+                    "entrance_1_width [m]": "0.5",
+                    "entrance_2_width [m]": "0.5",
+                    "instructions": ""
+                },
+                "status": "published"
+            },
+            {
+                "run_name": "bot-300-065-065",
+                "start_date": "2009-05-15",
+                "start_time": "12:17:00",
+                "number_participants": 147,
+                "wkt_geometry": "POLYGON ((-2.4 11, 6 11, 6 -11, -2.4 -11, -2.4 11), (3 -4, 3 4, 3.1 4, 3.1 -4, 3 -4), (0 -4, 0 4, -0.1 4, -0.1 -4, 0 -4), (1.825 8, 1.825 8.1, 3.525 8.1, 3.525 8, 1.825 8), (1.175 8, 1.175 8.1, -0.525 8.1, -0.525 8, 1.175 8), (1.825 -8, 1.825 -8.1, 3.525 -8.1, 3.525 -8, 1.825 -8), (1.175 -8, 1.175 -8.1, -0.525 -8.1, -0.525 -8, 1.175 -8))",
+                "notes": null,
+                "parameter": {
+                    "corridor_width [m]": "3",
+                    "entrance_1_width [m]": "0.65",
+                    "entrance_2_width [m]": "0.65",
+                    "instructions": ""
+                },
+                "status": "published"
+            }
+        ],
+        "keywords": [
+            "pedestrian dynamics",
+            "experiment",
+            "camera tracking",
+            "corridor",
+            "bidirectional"
+        ]
+    }
+}
