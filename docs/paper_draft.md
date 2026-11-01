@@ -245,8 +245,28 @@ high near 3.6/m² (Fig. 3). The real data reaches 3.9/m².
   with outbound flow tied to arrivals and a warm-up period. No incident reconstruction: the
   Sangam is a test site for a general method.
 - **Two-way flow (found in Phase 3):** the calibrated CollisionFreeSpeed model fails Jülich
-  two-way corridor runs (0/18 within ±15%, flow 17–77% low, 11/18 deadlocked). Alternative
-  models are being calibrated (§5, to be extended).
+  two-way corridor runs (0/18 within ±15%, flow 17–77% low, 11/18 deadlocked): agents meet
+  head-on and pack to ~7/m² where the real corridor stayed ≤ 3.5/m². JuPedSim's other models did
+  not do better (SocialForce: no setting of an 18-point grid passed). In the real data,
+  same-direction neighbours exceed chance only above ~1.5/m² (0.61–0.65 vs 0.51), i.e. lanes form
+  when crowded, as several thin lanes. Imposing lanes on the collision-free model (each direction
+  enters its own half; optionally a centre barricade) reduces peak corridor density (7.2 → 5.3/m²)
+  and deadlocks (11 → 7 runs) but passes only 2/18 runs (mean flow error 29%). The remaining
+  deficit sits at the corridor ends, where outgoing people must cross the waiting crowd, and at
+  narrow (≤ 1 m) entrances. Driving the simulation with the measured entry times and positions
+  (each person enters where and when they were first tracked and leaves where they were last
+  tracked) separates set-up from model: 10/18 runs pass (mean error 19%). All runs with real peak
+  density below ~1.8/m² pass but one (−3% to +2%; −17%), and all runs at ≥ ~2/m² fail (−11% to −73%),
+  with the simulated corridor locking at ~5/m² where the real crowd is interleaved at 2–3/m². The
+  failure threshold coincides with the density at which lanes appear in the real data. Imposed
+  lanes on top of the replay make it worse (mean error 58–63% vs 41% on the crowded runs). So the
+  collision-free model is validated for two-way flow up to ~1.8/m² only; counter-flow areas above
+  ~2/m² in site scenarios are reported as unvalidated. The AnticipationVelocity model (Xu et al.,
+  2021), designed for bidirectional flow, was calibrated in two stages (time gap × radius, then
+  anticipation × reaction time; 24 settings): its best setting matches flow while people move
+  (bottleneck 7%, two-way 3%) but every setting freezes permanently in every one-way corridor run and
+  in most two-way runs, so it was rejected. Site scenarios therefore use one-way routing wherever
+  counter-flow would exceed ~2/m², as one-way pontoon systems at the Kumbh already do.
 - **Phase 4:** synthetic pings drawn from the simulated agents. Variables: share of users
   (1–5%), ping interval (5–30 s), GPS error (σ = 5/10/20 m, plus outliers and dropouts),
   and map-matching to the walking network. Estimators: kernel density (after Wirz et al.)

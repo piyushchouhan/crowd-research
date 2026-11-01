@@ -1,0 +1,125 @@
+{
+ "model_name": "anticipation_velocity",
+ "model": {
+  "pushout_strength": 0.3
+ },
+ "agent": {
+  "time_gap": 0.6,
+  "radius": 0.15,
+  "strength_neighbor_repulsion": 8.0,
+  "range_neighbor_repulsion": 0.1,
+  "wall_buffer_distance": 0.1,
+  "anticipation_time": 1.0,
+  "reaction_time": 0.3
+ },
+ "agents": {
+  "radius_m": 0.175,
+  "time_gap_s": 0.6,
+  "min_spawn_gap_m": 0.45,
+  "desired_speed_mps": {
+   "mean": 1.34,
+   "sd": 0.26,
+   "min": 0.6,
+   "max": 1.8
+  }
+ },
+ "overrides": [
+  "agents.desired_speed_mps.mean=1.34",
+  "agents.desired_speed_mps.sd=0.26",
+  "model_variants.anticipation_velocity.agent.time_gap=0.6",
+  "model_variants.anticipation_velocity.agent.radius=0.15"
+ ],
+ "seeds": 2,
+ "lanes": "none",
+ "lane_width_m": 0.9,
+ "replay": true,
+ "tolerance": 0.15,
+ "start_density_ppm2": 3.0,
+ "bottleneck": {
+  "runs": [
+   {
+    "run": "b090",
+    "n": 170,
+    "width_m": 0.9,
+    "stuck": [
+     144,
+     112
+    ],
+    "flow_real_ps": 1.558,
+    "flow_sim_ps": 1.153,
+    "flow_sim_sd": 0.016,
+    "error": -0.26,
+    "deadlock": true,
+    "pass": false
+   },
+   {
+    "run": "b120",
+    "n": 178,
+    "width_m": 1.2,
+    "stuck": [
+     9,
+     0
+    ],
+    "flow_real_ps": 2.25,
+    "flow_sim_ps": 1.952,
+    "flow_sim_sd": 0.162,
+    "error": -0.132,
+    "deadlock": true,
+    "pass": false
+   },
+   {
+    "run": "b160",
+    "n": 178,
+    "width_m": 1.6,
+    "stuck": [
+     0,
+     0
+    ],
+    "flow_real_ps": 2.765,
+    "flow_sim_ps": 2.91,
+    "flow_sim_sd": 0.063,
+    "error": 0.053,
+    "deadlock": false,
+    "pass": true
+   },
+   {
+    "run": "b200",
+    "n": 178,
+    "width_m": 2.0,
+    "stuck": [
+     0,
+     0
+    ],
+    "flow_real_ps": 3.437,
+    "flow_sim_ps": 3.599,
+    "flow_sim_sd": 0.002,
+    "error": 0.047,
+    "deadlock": false,
+    "pass": true
+   },
+   {
+    "run": "b250",
+    "n": 176,
+    "width_m": 2.5,
+    "stuck": [
+     0,
+     0
+    ],
+    "flow_real_ps": 4.958,
+    "flow_sim_ps": 4.682,
+    "flow_sim_sd": 0.009,
+    "error": -0.056,
+    "deadlock": false,
+    "pass": true
+   }
+  ],
+  "specific_flow_real_pms": 1.846,
+  "specific_flow_sim_pms": 1.789,
+  "config_specific_flow_pms": 1.3,
+  "mean_abs_error": 0.11,
+  "max_abs_error": 0.26,
+  "widths_passing": 3,
+  "widths_total": 5,
+  "pass": false
+ }
+}

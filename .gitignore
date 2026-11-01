@@ -19,3 +19,4 @@ out/validation/*/sim/
 # Per-setting plots of the calibration grids; their summary.json is enough
 out/validation/grid*/*.png
 out/validation/sfgrid*/*.png
+out/validation/avm*/*.png

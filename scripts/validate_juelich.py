@@ -153,6 +153,50 @@ def bidirectional_setup(run, rng):
     return walk, [(top, side(-7.8, -4.3)), (bottom, side(4.3, 7.8))], {"line": line, "width_m": width}
 
 
+LANE_ENTRY_Y = 3.0   # lane waypoint inside the corridor's entry end (corridor is y -4..4)
+LANE_WAYPOINT_M = 0.5
+DIVIDER_M = 0.05
+
+
+def add_lanes(walk, groups, width, layout, lane_width, radius, rng):
+    """Imposed lanes for the two-way corridor: each agent enters the corridor at a lateral position
+    inside a lane of its own direction. 'halves': down-walkers on the left half, up-walkers on the
+    right. 'alternating': lanes of lane_width alternate direction across the width. 'divided':
+    halves with a thin wall between them along the corridor (a barricade). Real crowds form lanes
+    by themselves; CollisionFreeSpeed does not, so they are given.
+    From the entry point each agent heads for the side exit nearer its lane, so it drifts towards
+    its own side and does not cut across the crowd waiting to enter. A waypoint at the far end
+    was tried and dropped: agents pushed off the exact point kept turning back to it, which
+    blocked the corridor mouth. goals must be [left exit, right exit]."""
+    n = max(2, round(width / lane_width)) if layout == "alternating" else 2
+    if layout == "divided":
+        walk = walk.difference(box(width / 2 - DIVIDER_M / 2, -4, width / 2 + DIVIDER_M / 2, 4))
+    edges = np.linspace(0, width, n + 1)
+    out = []
+    for g, (start, goals) in enumerate(groups):  # group 0 walks down (+y to -y), group 1 up
+        mine = [k for k in range(n) if k % 2 == g]
+        lane = rng.choice(mine, len(start))
+        x = rng.uniform(edges[lane] + radius, edges[lane + 1] - radius)
+        y_in = LANE_ENTRY_Y if g == 0 else -LANE_ENTRY_Y
+        out.append((start, goals, [([(xi, y_in)], int(xi > width / 2)) for xi in x]))
+    return walk, out
+
+
+REPLAY_GOAL_M = 0.6   # radius of the exit circle around each person's last tracked position
+
+
+def replay_agents(path):
+    """Real boundary conditions for the two-way runs: per person (time first seen [s], first position,
+    last position). The cameras cover only y -7.2..7.2: people appear just inside an entrance and
+    vanish towards the side exits."""
+    d = np.loadtxt(path, usecols=(0, 1, 2, 3))
+    d[:, 2:] /= 100
+    d = d[np.lexsort((d[:, 1], d[:, 0]))]
+    _, first = np.unique(d[:, 0], return_index=True)
+    last = np.r_[first[1:] - 1, len(d) - 1]
+    return sorted((d[i, 1] / 16, tuple(d[i, 2:4]), tuple(d[j, 2:4])) for i, j in zip(first, last))
+
+
 # --- simulation --------------------------------------------------------------------
 
 MODELS = {  # name: (model class, agent parameter class, time steps per written frame)
@@ -173,21 +217,83 @@ def model_params(name, cfg):
     return v["model"], v["agent"]
 
 
+def replay_lanes(people, width, layout, lane_width, radius, rng):
+    """Lane entry waypoints for replayed people, as add_lanes does for the full set-up: a person
+    first seen at y > 0 walks down and enters a down lane."""
+    n = max(2, round(width / lane_width)) if layout == "alternating" else 2
+    edges = np.linspace(0, width, n + 1)
+    out = []
+    for _, start, _ in people:
+        g = int(start[1] < 0)
+        lane = rng.choice([k for k in range(n) if k % 2 == g])
+        out.append([(rng.uniform(edges[lane] + radius, edges[lane + 1] - radius),
+                     LANE_ENTRY_Y if g == 0 else -LANE_ENTRY_Y)])
+    return out
+
+
+def simulate_replay(walk, people, fps, out_file, cfg, rng, model="collision_free", lanes=None):
+    """Each person enters at their real time and position and walks to where they left the
+    camera view, through their lane waypoints if given. An entry spot still occupied by a
+    simulated agent delays that entry; the delays show how far the simulation falls behind the
+    real inflow. Returns (agents left at the end including never-entered ones, mean entry delay [s])."""
+    model_cls, agent_cls, steps = MODELS[model]
+    model_kw, agent_kw = model_params(model, cfg)
+    r = agent_kw["radius"]
+    writer = jps.SqliteTrajectoryWriter(output_file=out_file, every_nth_frame=steps)
+    sim = jps.Simulation(model=model_cls(**model_kw), geometry=walk, dt=1 / (steps * fps),
+                         trajectory_writer=writer)
+    sp = cfg["agents"]["desired_speed_mps"]
+    waiting, delays = list(zip(people, lanes or [[]] * len(people))), []
+    while (waiting or sim.agent_count()) and sim.elapsed_time() < MAX_SIM_S:
+        now = sim.elapsed_time()
+        for item in [p for p in waiting if p[0][0] <= now]:
+            (t, pos, end), waypoints = item
+            if list(sim.agents_in_range(pos, 2 * r)):
+                continue
+            stages = [sim.add_waypoint_stage(w, LANE_WAYPOINT_M) for w in waypoints]
+            stages.append(sim.add_exit_stage(shapely.Point(end).buffer(REPLAY_GOAL_M).intersection(walk)))
+            desc = jps.JourneyDescription(stages)
+            for a, b in zip(stages, stages[1:]):
+                desc.set_transition_for_stage(a, jps.Transition.create_fixed_transition(b))
+            try:
+                sim.add_agent(agent_cls(
+                    journey_id=sim.add_journey(desc), stage_id=stages[0],
+                    position=pos, **agent_kw,
+                    desired_speed=float(np.clip(rng.normal(sp["mean"], sp["sd"]), sp["min"], sp["max"]))))
+            except RuntimeError:
+                continue  # too close to a wall or agent for the model; try again next step
+            waiting.remove(item)
+            delays.append(now - t)
+        sim.iterate()
+    stuck = sim.agent_count() + len(waiting)
+    writer.close()
+    return stuck, float(np.mean(delays)) if delays else 0.0
+
+
 def simulate(walk, groups, fps, out_file, cfg, rng, model="collision_free"):
-    """Run until everyone has left. groups: [(start positions, [exit polygons])]; a group with
-    several exits splits evenly between them. Frames are written at the real data's frame rate."""
+    """Run until everyone has left. groups: [(start positions, [exit polygons], optional per-agent
+    (waypoints, exit index))]; without routes, a group with several exits splits evenly between
+    them. Frames are written at the real data's frame rate."""
     model_cls, agent_cls, steps = MODELS[model]
     model_kw, agent_kw = model_params(model, cfg)
     writer = jps.SqliteTrajectoryWriter(output_file=out_file, every_nth_frame=steps)
     sim = jps.Simulation(model=model_cls(**model_kw), geometry=walk, dt=1 / (steps * fps),
                          trajectory_writer=writer)
     sp = cfg["agents"]["desired_speed_mps"]
-    for start, goals in groups:
+    for start, goals, *routes in groups:
         exits = [sim.add_exit_stage(g) for g in goals]
         journeys = [sim.add_journey(jps.JourneyDescription([e])) for e in exits]
         for k, p in enumerate(start):
+            journey, stage = journeys[k % len(exits)], exits[k % len(exits)]
+            if routes:
+                waypoints, exit_k = routes[0][k]
+                stages = [sim.add_waypoint_stage(w, LANE_WAYPOINT_M) for w in waypoints] + [exits[exit_k]]
+                desc = jps.JourneyDescription(stages)
+                for a, b in zip(stages, stages[1:]):
+                    desc.set_transition_for_stage(a, jps.Transition.create_fixed_transition(b))
+                journey, stage = sim.add_journey(desc), stages[0]
             sim.add_agent(agent_cls(
-                journey_id=journeys[k % len(exits)], stage_id=exits[k % len(exits)], position=tuple(p),
+                journey_id=journey, stage_id=stage, position=tuple(p),
                 desired_speed=float(np.clip(rng.normal(sp["mean"], sp["sd"]), sp["min"], sp["max"])),
                 **agent_kw))
     crashed = False
@@ -285,18 +391,34 @@ def run_dataset(kind, args, cfg, out_dir):
     for name, run, path in runs:
         t0 = time.time()
         real = load_real(path, fps)
-        sims, stuck = [], []
+        sims, stuck, delays = [], [], []
         for seed in range(args.seeds):
             rng = np.random.default_rng(seed)
             walk, groups, info = setup(run, rng)
+            if kind == "bidirectional" and args.lanes != "none":
+                walk, groups = add_lanes(walk, groups, info["width_m"], args.lanes, args.lane_width,
+                                   model_params(args.model, cfg)[1]["radius"], rng)
             f = sim_dir / f"{name}_s{seed}.sqlite"
-            if not (args.reuse and f.exists()):
+            if args.replay and kind == "bidirectional":
+                f.unlink(missing_ok=True)
+                people, lanes = replay_agents(path), None
+                if args.lanes != "none":
+                    radius = model_params(args.model, cfg)[1]["radius"]
+                    # walk already has the divider from add_lanes above
+                    lanes = replay_lanes(people, info["width_m"], args.lanes, args.lane_width, radius, rng)
+                left, delay = simulate_replay(walk, people, fps, f, cfg, rng, args.model, lanes)
+                stuck.append(left)
+                delays.append(delay)
+            elif not (args.reuse and f.exists()):
                 f.unlink(missing_ok=True)
                 stuck.append(simulate(walk, groups, fps, f, cfg, rng, args.model))
             sims.append(pedpy.load_trajectory_from_jupedsim_sqlite(trajectory_file=f))
             if not args.keep_sim:
                 f.unlink()  # a full run's trajectories take gigabytes
         row = {"run": name, "n": run["number_participants"], "width_m": info["width_m"], "stuck": stuck}
+        if delays:
+            row["entry_delay_s"] = round(float(np.mean(delays)), 2)
+            print(f"{name}: mean entry delay {row['entry_delay_s']} s", flush=True)
         if kind in ("bottleneck", "bidirectional"):
             fr, t_real, t_sim = flow_row(real, sims, info["line"], stuck)
             row.update(fr)
@@ -426,6 +548,11 @@ def main():
     ap.add_argument("--set", nargs="*", default=[], help="config overrides, e.g. agents.time_gap_s=0.8")
     ap.add_argument("--keep-sim", action="store_true", help="keep simulated trajectories (SQLite) after analysis")
     ap.add_argument("--reuse", action="store_true", help="reuse kept simulated trajectories (needs --keep-sim)")
+    ap.add_argument("--lanes", choices=["none", "halves", "alternating", "divided"], default="none",
+                    help="imposed lanes in the two-way corridor (see add_lanes)")
+    ap.add_argument("--lane-width", type=float, default=0.9, help="lane width for --lanes alternating [m]")
+    ap.add_argument("--replay", action="store_true",
+                    help="two-way runs: people enter at their real time and place (see simulate_replay)")
     ap.add_argument("--name", default="baseline")
     args = ap.parse_args()
     cfg = apply_overrides(config.load(), args.set)
@@ -434,7 +561,7 @@ def main():
 
     model_kw, agent_kw = model_params(args.model, cfg)
     summary = {"model_name": args.model, "model": model_kw, "agent": agent_kw, "agents": cfg["agents"],
-               "overrides": args.set, "seeds": args.seeds,
+               "overrides": args.set, "seeds": args.seeds, "lanes": args.lanes, "lane_width_m": args.lane_width, "replay": args.replay,
                "tolerance": TOLERANCE, "start_density_ppm2": START_DENSITY}
     for kind in (list(DATASETS) if args.dataset == "all" else [args.dataset]):
         summary[kind] = run_dataset(kind, args, cfg, out)

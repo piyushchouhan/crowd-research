@@ -109,6 +109,106 @@ Dated record of what was done and decided, and why. Newest last. The paper draft
 - Next idea: CollisionFreeSpeed with **imposed lanes** for two-way flow (each direction routed
   along its own half of a path, as real crowds self-organise), validated on the same two-way runs.
 
+## 2026-11-01 — Imposed lanes for two-way flow
+- **Diagnosis of the earlier failure.** In the busiest runs the agents are not stuck for good; they
+  meet head-on and pack to ~7/m² where the real corridor never exceeded 3.5/m² (flow −66 to −77%).
+  Permanent clogs of 76–112 agents happen only at entrances ≤ 0.65 m. In ~6 runs only 2–4 agents
+  stick to the thin entrance walls, outside the measurement area.
+- **Lanes in the real data** (same-direction share among each person's 4 nearest neighbours in the
+  middle 4 m of the corridor; chance level ≈ 0.51): at 1.5–2.3/m² it is 0.61–0.65, so lanes form,
+  but each direction is spread ~50/50 across the width (several thin lanes, not two halves). Below
+  ~1/m² it is 0.42–0.48 (no lanes) with a loose side preference (one direction ~65% on one half).
+  This matches the user's field observation that lanes form when it is crowded. Groups cannot be
+  tested: the participants walked as individuals and the data has no group labels.
+- **Implementation** (`validate_juelich.py --lanes halves|alternating|divided`): each agent enters
+  the corridor through a waypoint inside a lane of its own direction, then heads for the side exit
+  nearer its lane. `divided` adds a 5 cm wall along the corridor centre (a barricade). Tried and
+  dropped: a second waypoint at the far end (agents pushed off the point turned back to it and
+  blocked the mouth), and a random exit side (outgoing people cut across the waiting crowd).
+- **Result, 18 runs × 3 seeds:**
+
+  | Lanes | Runs within ±15% | Mean abs. flow error | Deadlocked runs | Peak corridor density, worst run (real 3.5) |
+  |---|---|---|---|---|
+  | none | 0/18 | 34% | 11 | 7.2/m² |
+  | halves | 2/18 | 30% | 9 | 5.4/m² |
+  | divided | 2/18 | 29% | 7 | 5.3/m² |
+
+  Lanes cut the head-on overcrowding and the worst errors (−77% → −67%, −73% → −57/−65%, and
+  −32% → −15% at bot-300-100-100), but no variant passes.
+- **What still limits flow.** (1) The corridor ends: people leaving must cross the crowd waiting to
+  enter (the lab told half of each group to use the far exit). The simulated waiting crowd packs to
+  ~3/m² against ~1/m² in reality, and collision-free agents cannot weave through it. (2) The narrow
+  entrances (0.5–1.0 m) of the low-density runs: their flow is 17–33% low with or without lanes, and
+  most remaining deadlocks are at entrances ≤ 0.65 m, the known narrow-opening weakness.
+- **Conclusion:** imposed lanes fix the false crush in the corridor but not the throughput. The
+  remaining error comes largely from the set-up around the corridor (entrances, holding areas),
+  which the real data does not constrain. Proposed next: drive the simulation with the real
+  boundary conditions (each person starts where and when they entered the camera view), so that
+  only the corridor is tested.
+
+## 2026-11-01 — Replay test: is it the model or the set-up?
+- **Question (user):** is the two-way failure in the model or in the data? The data covers only
+  the camera view (y −7.2..7.2 m), so the holding areas, start density (3/m², assumed) and release
+  in our set-up are guesses.
+- **Replay design** (`--replay`): each simulated person appears at the real person's first tracked
+  position and time (just inside an entrance) and walks to an exit circle (r = 0.6 m) at their last
+  tracked position. Nothing outside the camera view is assumed. An occupied entry spot delays the
+  entry; the mean delay is reported (≤ 0.5 s in all runs, so the inflow was always absorbed).
+- **Result, 18 runs × 3 seeds, no lanes:** 10/18 within ±15% (was 0/18), mean error 19% (was
+  34%), 3 deadlocked runs (was 11). The split is by density:
+
+  | Real peak density | Runs | Result |
+  |---|---|---|
+  | < ~1.8/m² | 11 | 10 pass, errors −3% to +2%; one −17% |
+  | ≥ ~2/m² | 7 | all fail, −11% (deadlock) to −73% |
+
+  Caveat: at low density the flow through the middle line is set mostly by the arrivals, so passing
+  there is a weak test. It does show that the earlier low-density failures came from the set-up
+  (holding areas, narrow entrances), not from the model.
+- **The model fails exactly where real lanes form** (same-direction neighbour share above chance
+  from ~1.5/m², see above). Snapshot (`figures/fig_bidir_replay_dense.png`): with real arrivals the
+  simulated corridor locks at ~5/m² (one direction along both walls, the other in the middle) while
+  the real crowd is interleaved at 2–3/m².
+- **Replay + imposed lanes is worse** (8 crowded runs, 3 seeds; mean abs. error): none 41%, halves
+  63%, alternating 59%, divided 58%. Real people enter across the whole width and half of each group
+  leaves on the far side (lab instruction), so forcing lanes makes agents cross the incoming stream.
+  A diagnostic with a divider and every exit moved to the agent's own side still gave −32% to −69%:
+  crossing at the exits is not the main cause either.
+- **Conclusion:** both. The set-up caused the low-density failures; the model (CollisionFreeSpeed)
+  causes the high-density ones. It reproduces two-way flow up to ~1.8/m² and fails above ~2/m²,
+  where real pedestrians self-organise into lanes. Imposed lanes do not repair it. Until a model
+  passes this test, two-way areas above ~2/m² are unvalidated.
+- **Next options:** (1) calibrate the AnticipationVelocity model (designed for counter-flow; so far
+  tried only with default parameters) on the replay test; (2) for site scenarios, use one-way routing
+  where counter-flow would exceed ~2/m² (one-way pontoons are also standard practice at the Kumbh);
+  (3) later, a movement model learned from trajectories.
+
+## 2026-11-01 — AnticipationVelocity calibration: failed
+- JuPedSim describes the AnticipationVelocity model (Xu et al. 2021) as reproducing bidirectional
+  flow, so it was calibrated like CollisionFreeSpeed (`scripts/avm_grid.sh`), on the training runs of
+  all three tests, two-way by replay, 2 seeds per run.
+- Defaults (T = 1.06 s, r = 0.2 m): bottleneck −55%, corridor speed −51%, two-way −50% with all 9
+  runs deadlocked, even the lightest. The stuck agents stand in one file along a corridor wall, 0.4 m
+  apart, facing each other: the model's wall-gliding sends both directions along the same wall line.
+- Stage 1, time gap × radius on the bottleneck (8 settings): best T = 0.6 s / r = 0.15 m (11%, 3/5
+  widths) and T = 0.5 s / r = 0.175 m (14%, 3/5). Every setting clogs permanently at 0.9 and 1.2 m.
+- Stage 2, anticipation time {0.5, 1, 2 s} × reaction time {0.1, 0.3, 0.6 s} on both stage-1
+  winners (16 of 18 settings run; stopped by the user once the result was clear):
+  - While people move, flow is close to real: best setting (T 0.6, r 0.15, anticipation 0.5 s,
+    reaction 0.1 s) has bottleneck error 7% and two-way flow error 3%, including crowded runs.
+  - But every setting leaves agents stuck for good in every one-way corridor run, and in most
+    two-way runs (best: 4/9 two-way runs pass; 1112 stuck agent-runs in total, worst 5015). In the
+    crowded two-way runs 120–290 of ~300 agents freeze.
+  - Longer anticipation and reaction times make it worse, monotonically.
+- **Conclusion:** AnticipationVelocity, as implemented in JuPedSim 1.4.2, is not usable: it reproduces
+  flow rates but freezes, which real crowds do not. Note that the flow metric (steady 10–90% window of
+  the people who crossed) looks good on runs that later freeze; the deadlock rule is what catches it.
+- **Decision (with the user): no new model.** Building or training our own model is out of scope for
+  a two-person project. CollisionFreeSpeed stays the model, with its validated range: one-way flow
+  and bottlenecks, and two-way flow up to ~1.8/m². Site scenarios use one-way routing where
+  counter-flow would exceed that, which is also standard practice at the Kumbh (one-way pontoons),
+  and report remaining counter-flow areas as unvalidated.
+
 ## Open decisions
 - Change `capacity.specific_flow_pms` from 1.3 to the measured ~1.86?
 - Merge PR #1 and the Phase 2 work.
