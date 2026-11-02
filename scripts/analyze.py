@@ -4,7 +4,9 @@ Per 4 m grid cell and per second: density (people/m2 of walkable ground),
 mean speed, and Helbing's crowd pressure = density x speed variance.
 Also the danger map: when each cell first reaches 4 and 6 people/m2.
 The model is validated only up to ~4/m2 (see README, Validation), so anything
-at 6/m2 is what the model indicates, not a validated result.
+at 6/m2 is what the model indicates, not a validated result. Cells where both
+directions mix at counterflow_ppm2 or more are outside the model's validated
+two-way range and are marked as such.
 Writes out/<name>/metrics.json and four PNGs.
 """
 import json
@@ -27,6 +29,8 @@ CELL_M = _A["cell_m"]
 MIN_WALKABLE_M2 = _A["min_walkable_m2"]  # ignore cells that are mostly wall/water
 DENSE = _A["dense_ppm2"]                 # people/m2: free walking stops
 CRITICAL = _A["critical_ppm2"]           # people/m2: crush risk
+COUNTERFLOW = _A["counterflow_ppm2"]     # people/m2: two-way flow not validated above this
+COUNTERFLOW_SHARE = _A["counterflow_min_share"]
 
 
 def first_cells(first_t, seconds_dense, x0, y0, n=10):
@@ -44,6 +48,8 @@ def main(name):
     walk = shape(hs["walkable"])
     snap = np.load(run_dir / "snapshots.npz")
     off, xy, ids = snap["offsets"], snap["xy"], snap["ids"]
+    # Direction per agent and frame; runs made before it was recorded count as all inbound.
+    outbound = snap["outbound"] if "outbound" in snap.files else np.zeros(len(ids), bool)
     run = json.load(open(run_dir / "run.json"))
 
     x0, y0, x1, y1 = walk.bounds
@@ -58,6 +64,7 @@ def main(name):
     first_dense = np.full((ny, nx), np.nan)     # first second each cell reaches DENSE
     first_critical = np.full((ny, nx), np.nan)  # ... and CRITICAL
     max_pressure = np.zeros((ny, nx))
+    seconds_counterflow = np.zeros((ny, nx))   # seconds a cell is two-way at >= COUNTERFLOW
     series = []
     prev = {}
     for t in range(len(off) - 1):
@@ -67,6 +74,12 @@ def main(name):
         count = np.zeros((ny, nx))
         np.add.at(count, (j, i), 1)
         dens = np.where(valid, count / np.maximum(area, 1e-9), 0)
+        n_out = np.zeros((ny, nx))
+        o = outbound[off[t]:off[t + 1]]
+        np.add.at(n_out, (j[o], i[o]), 1)
+        minority = np.minimum(n_out, count - n_out)
+        counterflow = (dens >= COUNTERFLOW) & (minority >= COUNTERFLOW_SHARE * count)
+        seconds_counterflow += counterflow
 
         # Speed from the 1 s displacement of agents seen in both frames.
         speed = np.full(len(p), np.nan)
@@ -98,6 +111,7 @@ def main(name):
             "p99_density": float(np.percentile(occupied, 99)) if occupied.size else 0.0,
             "cells_dense": int((dens >= DENSE).sum()),
             "cells_critical": int((dens >= CRITICAL).sum()),
+            "cells_counterflow": int(counterflow.sum()),
             "max_pressure": float(pressure.max()),
             "median_speed": float(np.nanmedian(speed)) if has.any() else None,
         })
@@ -120,6 +134,10 @@ def main(name):
         "area_dense_m2": float(area[~np.isnan(first_dense)].sum()),
         "area_critical_m2": float(area[~np.isnan(first_critical)].sum()),
         "seconds_dense_max": int(seconds_dense.max()),
+        # Two-way cells above the validated density: model results there are not validated.
+        "area_counterflow_m2": float(area[seconds_counterflow > 0].sum()),
+        "seconds_counterflow_max": int(seconds_counterflow.max()),
+        "dense_cells_in_counterflow": int(((seconds_counterflow > 0) & ~np.isnan(first_dense)).sum()),
         # Earliest cells to reach each threshold: where trouble starts.
         "first_cells_dense": first_cells(first_dense, seconds_dense, x0, y0),
         "first_cells_critical": first_cells(first_critical, seconds_dense, x0, y0),
@@ -149,10 +167,15 @@ def main(name):
     if (~np.isnan(first_critical)).any():
         ax.contour(~np.isnan(first_critical), levels=[0.5], origin="lower", extent=extent,
                    colors="red", linewidths=1.2)
+    if (seconds_counterflow > 0).any():
+        ax.contourf(seconds_counterflow > 0, levels=[0.5, 1.5], origin="lower", extent=extent,
+                    colors="none", hatches=["////"])
+        ax.contour(seconds_counterflow > 0, levels=[0.5], origin="lower", extent=extent,
+                   colors="cyan", linewidths=0.8)
     outline(ax, walk, color="white", lw=0.5)
     fig.colorbar(im, ax=ax, shrink=0.6, label=f"minutes until density first ≥ {DENSE}/m²")
     ax.set_title(f"{name}: danger map. Colour: first ≥ {DENSE}/m²; red outline: ≥ {CRITICAL}/m² "
-                 "(not validated)", fontsize=9)
+                 f"(not validated);\ncyan hatched: two-way flow ≥ {COUNTERFLOW}/m² (not validated)", fontsize=9)
     fig.savefig(run_dir / "danger_map.png", dpi=80, bbox_inches="tight")
     plt.close(fig)
 

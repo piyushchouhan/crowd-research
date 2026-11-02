@@ -267,6 +267,15 @@ high near 3.6/m² (Fig. 3). The real data reaches 3.9/m².
   (bottleneck 7%, two-way 3%) but every setting freezes permanently in every one-way corridor run and
   in most two-way runs, so it was rejected. Site scenarios therefore use one-way routing wherever
   counter-flow would exceed ~2/m², as one-way pontoon systems at the Kumbh already do.
+- **Phase 3 results so far (ordinary day, one-way routing):** inbound through G3/G4/G5, outbound
+  through G0/G1/G2, 60% of bathers walk back out after 10 min; 75 min per run, one seed. Peak
+  density stays below 4/m² at 250 and 500 people/min (2.1, 2.9/m²). At 1000/min the merge of the
+  G3 and G4 roads (demand 700/min vs capacity 429/min) holds ≥ 4/m² from minute 17 over 2,659 m²;
+  at 1500/min all inbound gates are over capacity, ≥ 4/m² from minute 15 over 5,481 m², and
+  14,299 people are still outside the gates at the end. No dense cell is in counter-flow. Where the
+  jam forms depends on the assumed gate shares: with an equal split the merge still jams, with half
+  of arrivals at G5 it does not (max 4.8/m²) and the queue moves outside G5. Gate shares are
+  therefore treated as an uncertain input in Phase 4.
 - **Phase 4:** synthetic pings drawn from the simulated agents. Variables: share of users
   (1–5%), ping interval (5–30 s), GPS error (σ = 5/10/20 m, plus outliers and dropouts),
   and map-matching to the walking network. Estimators: kernel density (after Wirz et al.)

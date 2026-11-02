@@ -12,6 +12,7 @@ import json
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import matplotlib
 matplotlib.use("Agg")
@@ -39,6 +40,8 @@ def main():
     ap.add_argument("--minutes", type=float, help="override the scenario's duration")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--keep-snapshots", action="store_true")
+    ap.add_argument("--jobs", type=int, default=1,
+                    help="inflows run in parallel (each large run holds its snapshots in memory, a few GB)")
     args = ap.parse_args()
     sc = cfg["scenarios"][args.scenario]
     inflows = args.inflows or sc["inflow_ppm"]
@@ -46,8 +49,7 @@ def main():
     out = ROOT / "out" / "sweeps" / args.scenario
     out.mkdir(parents=True, exist_ok=True)
 
-    rows = []
-    for inflow in inflows:
+    def one(inflow):
         name = f"{args.scenario}_in{int(inflow)}_s{args.seed}"
         wall = run(["run_sim.py", "--inflow", str(inflow), "--outflow-frac", str(sc["outflow_frac"]),
                     "--minutes", str(minutes), "--seed", str(args.seed), "--name", name], f"run_sim {name}")
@@ -61,15 +63,20 @@ def main():
                "first_t_dense_s": m["first_t_dense"], "first_t_critical_s": m["first_t_critical"],
                "area_dense_m2": round(m["area_dense_m2"]), "area_critical_m2": round(m["area_critical_m2"]),
                "max_pressure": round(m["max_pressure"], 3),
+               "area_counterflow_m2": round(m["area_counterflow_m2"]),
                "waiting_outside_end": m["waiting_outside_end"], "entered_inbound": m["entered_inbound"],
                "first_cells_dense": m["first_cells_dense"][:3]}
-        rows.append(row)
         print(f"{name}: max {row['max_density']}/m², ≥4/m² first at {row['first_t_dense_s']} s over "
-              f"{row['area_dense_m2']} m², waiting outside {row['waiting_outside_end']}, wall {row['wall_s']} s",
+              f"{row['area_dense_m2']} m², two-way ≥ validated range {row['area_counterflow_m2']} m², "
+              f"waiting outside {row['waiting_outside_end']}, wall {row['wall_s']} s",
               flush=True)
+        return row
+
+    with ThreadPoolExecutor(max_workers=args.jobs) as pool:  # each job is its own process
+        rows = list(pool.map(one, inflows))
 
     summary = {"scenario": args.scenario, "note": sc["note"], "minutes": minutes, "seed": args.seed,
-               "outflow_frac": sc["outflow_frac"], "model": cfg["model"], "agents": cfg["agents"], "runs": rows}
+               "outflow_frac": sc["outflow_frac"], "routing": cfg["routing"], "model": cfg["model"], "agents": cfg["agents"], "runs": rows}
     (out / "summary.json").write_text(json.dumps(summary, indent=1))
 
     x = [r["inflow_ppm"] for r in rows]

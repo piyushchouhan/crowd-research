@@ -1,11 +1,12 @@
 """Simulate pilgrims walking to and from the Sangam nose bathing ghat.
 
-Inbound people enter at the window gates and walk to the bathing goal at the
-nose tip (reaching it = bathing, they leave the simulation). Outbound people
-appear in the bathing area and walk back to a gate. Together they make the
-counter-flow that turns dangerous at high density.
+Inbound people enter at the inbound gates and walk to the bathing goal at the
+nose tip (reaching it = bathing, they leave the simulation). After bathing_min,
+a share of them (--outflow-frac) reappear on the ghat and walk out through an
+outbound gate. With routing one_way (config) the two directions use different
+gates, since the model is not validated for dense counter-flow.
 
-Writes out/<name>/snapshots.npz (positions every second) and run.json.
+Writes out/<name>/snapshots.npz (positions and direction every second) and run.json.
 """
 import argparse
 import json
@@ -23,6 +24,7 @@ CFG = config.load()
 # Share of inbound arrivals per gate (G0..G5, see out/hotspot_walkable.png):
 # G0/G1 east bank via pontoons, G2/G3 north lanes along the nose, G4/G5 city roads.
 GATE_WEIGHTS = CFG["gate_weights"]
+ROUTING = CFG["routing"]
 AGENT_RADIUS_M = CFG["agents"]["radius_m"]
 MIN_SPAWN_GAP_M = CFG["agents"]["min_spawn_gap_m"]
 SPEED = CFG["agents"]["desired_speed_mps"]
@@ -40,8 +42,12 @@ def random_points(poly, n, rng):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--inflow", type=float, default=1500, help="inbound people per minute, all gates")
-    ap.add_argument("--outflow-frac", type=float, default=0.6, help="outbound rate as a share of inflow")
-    ap.add_argument("--minutes", type=float, default=20)
+    ap.add_argument("--outflow-frac", type=float, default=0.6,
+                    help="share of bathers who walk back out through the area")
+    ap.add_argument("--routing", choices=["one_way", "two_way"], default=ROUTING["mode"])
+    ap.add_argument("--gate-weights", type=float, nargs="*", default=GATE_WEIGHTS,
+                    help="inbound share per gate G0..G5 (renormalised over the inbound gates)")
+    ap.add_argument("--minutes", type=float, default=45)
     ap.add_argument("--dt", type=float, default=0.05)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--name", default=None)
@@ -59,13 +65,21 @@ def main():
     ghat = shape(hs["bathing_area"]).difference(goal.buffer(2)).buffer(-1)
     for g in [goal, ghat, *gates]:
         shapely.prepare(g)
-    if len(GATE_WEIGHTS) != len(gates):
-        raise SystemExit(f"config gate_weights has {len(GATE_WEIGHTS)} entries but the hotspot has {len(gates)} gates")
+    if len(args.gate_weights) != len(gates):
+        raise SystemExit(f"gate weights have {len(args.gate_weights)} entries but the hotspot has {len(gates)} gates")
+    if args.routing == "one_way":
+        in_gates, out_gates = ROUTING["inbound_gates"], ROUTING["outbound_gates"]
+    else:
+        in_gates = out_gates = list(range(len(gates)))
+    weights = np.array([w if i in in_gates else 0 for i, w in enumerate(args.gate_weights)], dtype=float)
+    weights /= weights.sum()
 
     # Inbound demand per gate against its free-flow capacity (width x specific flow).
     # Over capacity is allowed: queues and backlog are what we want to see.
     gate_load = []
-    for i, (w, cap) in enumerate(zip(GATE_WEIGHTS, hs["gate_capacity"])):
+    for i, (w, cap) in enumerate(zip(weights, hs["gate_capacity"])):
+        if not w:
+            continue
         demand = args.inflow * w
         gate_load.append({"gate": i, "demand_ppm": round(demand), "capacity_ppm": cap["capacity_ppm"],
                           "load": round(demand / cap["capacity_ppm"], 2)})
@@ -82,21 +96,23 @@ def main():
         gate_ids.append(sim.add_exit_stage(shapely.Point(centre).buffer(0.9 * np.linalg.norm(edge - centre), 8)))
     out_journeys = [sim.add_journey(jps.JourneyDescription([gid])) for gid in gate_ids]
 
-    in_rate = args.inflow / 60 * np.array(GATE_WEIGHTS)        # people/s per gate
-    out_rate = args.inflow * args.outflow_frac / 60             # people/s from the ghat
+    in_rate = args.inflow / 60 * weights                        # people/s per gate
     backlog_in = np.zeros(len(gates))
-    backlog_out = 0.0
+    backlog_out = 0                                             # bathed, waiting to step onto the ghat
+    returns = []                                                # times (s) when bathers start back
+    bathe_s = ROUTING["bathing_min"] * 60
     steps = int(args.minutes * 60 / args.dt)
     per_second = int(round(1 / args.dt))
 
-    frames, frame_ids, series = [], [], []
-    added_in = added_out = 0
+    frames, frame_ids, frame_out, series = [], [], [], []
+    added_in = added_out = bathed = 0
+    inbound = set()                                             # ids of inbound agents still walking
     t0 = time.time()
 
     def positions():
         return np.array([a.position for a in sim.agents()]).reshape(-1, 2)
 
-    def place(poly, n, pos, journey, stage):
+    def place(poly, n, pos, journey, stage, ids=None):
         placed = 0
         if n <= 0:
             return 0
@@ -106,12 +122,14 @@ def main():
             if len(pos) and np.min(np.sum((pos - p) ** 2, axis=1)) < MIN_SPAWN_GAP_M ** 2:
                 continue
             try:
-                sim.add_agent(jps.CollisionFreeSpeedModelAgentParameters(
+                aid = sim.add_agent(jps.CollisionFreeSpeedModelAgentParameters(
                     journey_id=journey, stage_id=stage, position=tuple(p),
                     desired_speed=float(np.clip(rng.normal(SPEED["mean"], SPEED["sd"]), SPEED["min"], SPEED["max"])),
                     radius=AGENT_RADIUS_M, time_gap=CFG["agents"]["time_gap_s"]))
             except RuntimeError:
                 continue
+            if ids is not None:
+                ids.add(aid)
             pos = np.vstack([pos, p])
             placed += 1
         return placed
@@ -120,33 +138,45 @@ def main():
         if step % per_second == 0:
             # Arrivals for the next second; whoever cannot fit waits outside (backlog).
             backlog_in += rng.poisson(in_rate)
-            backlog_out += rng.poisson(out_rate)
+            now = sim.elapsed_time()
+            backlog_out += sum(t <= now for t in returns)
+            returns = [t for t in returns if t > now]
             pos = positions()
             for i, g in enumerate(gates):
-                n = place(g, int(backlog_in[i]), pos, in_journey, goal_id)
+                n = place(g, int(backlog_in[i]), pos, in_journey, goal_id, inbound)
                 backlog_in[i] -= n
                 added_in += n
                 pos = positions() if n else pos
-            k = int(rng.integers(len(gates)))
-            n = place(ghat, int(backlog_out), pos, out_journeys[k], gate_ids[k])
+            k = int(rng.choice(out_gates))
+            n = place(ghat, backlog_out, pos, out_journeys[k], gate_ids[k])
             backlog_out -= n
             added_out += n
 
             ids = np.array([a.id for a in sim.agents()], dtype=np.int64)
             frames.append(positions().astype(np.float32))
             frame_ids.append(ids)
-            series.append({"t": round(sim.elapsed_time()), "agents": int(sim.agent_count()),
+            frame_out.append(np.array([a not in inbound for a in ids], dtype=bool))
+            series.append({"t": round(now), "agents": int(sim.agent_count()),
                            "backlog_in": int(backlog_in.sum()), "backlog_out": int(backlog_out),
-                           "added_in": added_in, "added_out": added_out})
+                           "added_in": added_in, "added_out": added_out, "bathed": bathed})
             if step % (60 * per_second) == 0:
                 print(f"t={sim.elapsed_time():5.0f}s agents={sim.agent_count():6d} "
-                      f"waiting_outside={int(backlog_in.sum()):6d} wall={time.time() - t0:5.0f}s", flush=True)
+                      f"waiting_outside={int(backlog_in.sum()):6d} bathed={bathed:6d} out={added_out:6d} "
+                      f"wall={time.time() - t0:5.0f}s", flush=True)
         sim.iterate()
+        # Inbound agents removed at the goal have bathed; some walk back out after bathing_min.
+        for aid in sim.removed_agents():
+            if aid in inbound:
+                inbound.discard(aid)
+                bathed += 1
+                if rng.random() < args.outflow_frac:
+                    returns.append(sim.elapsed_time() + bathe_s)
 
     np.savez_compressed(out / "snapshots.npz",
                         offsets=np.cumsum([0] + [len(f) for f in frames]),
-                        xy=np.concatenate(frames), ids=np.concatenate(frame_ids))
-    run = {"args": vars(args), "gate_weights": GATE_WEIGHTS, "agent_radius_m": AGENT_RADIUS_M,
+                        xy=np.concatenate(frames), ids=np.concatenate(frame_ids),
+                        outbound=np.concatenate(frame_out))
+    run = {"args": vars(args), "gate_weights": weights.tolist(), "routing": ROUTING, "agent_radius_m": AGENT_RADIUS_M,
            "model": "CollisionFreeSpeedModel", "wall_seconds": round(time.time() - t0, 1),
            "model_params": CFG["model"], "agents": CFG["agents"], "gate_load": gate_load,
            "assumptions": hs["assumptions"], "series": series}

@@ -209,6 +209,85 @@ Dated record of what was done and decided, and why. Newest last. The paper draft
   counter-flow would exceed that, which is also standard practice at the Kumbh (one-way pontoons),
   and report remaining counter-flow areas as unvalidated.
 
+## 2026-11-01 — Sangam: one-way routing, return trips after bathing
+- `run_sim.py`: gates have roles (`routing` in config; `--routing two_way` keeps the old set-up).
+  Inbound agents that reach the goal have bathed; after `bathing_min` (10, a guess) a share
+  `outflow_frac` (0.6) reappear on the ghat and walk to an outbound gate. This replaces outbound
+  spawning from t = 0. Runs are 45 min. Each agent's direction is saved in the snapshots.
+- `analyze.py`: a cell is counter-flow when the smaller direction is ≥ 20% of its people; at
+  ≥ 1.8/m² that is outside the validated two-way range and is hatched on the danger map
+  (`area_counterflow_m2`).
+- **Test 1** (in: G2–G5, out: G0, G1; 1000/min, 45 min; `out/oneway_test1/`): no queue at the
+  gates, 44,742 entered, still filling at the end (~650 more people per minute). The only dense area
+  (1654 m², up to 8.7/m²) is the foot of the G2 lane at the ghat, from minute 25, when return trips
+  start. It is counter-flow: the G2 lane is the only link between the nose and the pontoons, so
+  people heading for G0/G1 walked up it against the inbound stream. An artefact of the routing, not
+  a result.
+- **Change:** G2 becomes outbound (in: G3, G4, G5; out: G0, G1, G2), so the G2 lane and the
+  pontoons carry one direction only.
+- **Test 2** (in: G3, G4, G5; out: G0, G1, G2; 1000/min, 45 min; `out/oneway_in1000/`): counter-flow
+  is gone (16 m² for 2 s, no dense cell in counter-flow). 45,356 entered, 22,143 bathed, 8,387
+  walked out; no queue at the gates; still filling at the end (30,840 people inside).
+  The one danger area is now a **merge**: the G3 and G4 roads join at about (400, 700) and continue
+  as one 5.5 m road. Demand there is 700/min (G3 400 + G4 300) against 429/min at the configured
+  1.3 people/m/s (614/min at the measured 1.86). A queue grows back up both roads: ≥ 4/m² from
+  minute 17 (1261 m² in total), up to 6.4/m² over 51 m² (above the validated range). Downstream of
+  the merge people walk at ~0.6 m/s. This is one-way flow through a bottleneck, the regime the model
+  is validated for, but it follows from the assumed gate shares.
+- Note: at 1000/min the area had not reached a steady state after 45 min; the sweep will need
+  longer runs (~60–90 min), about 1.5–2× the compute (a 45 min run takes ~75 min).
+
+## 2026-11-01 — Gate shares: the danger spot follows the assumed split
+How arrivals split over the inbound gates is not known, so test 2 was repeated with two other
+splits (1000/min, 45 min, one seed each; `out/gates_equal/`, `out/gates_west/`, snapshots deleted).
+
+| split (G3 / G4 / G5, per min) | G3+G4 at the merge | first ≥ 4/m² | area ≥ 4/m² | area ≥ 6/m² | max | waiting outside at end |
+|---|---|---|---|---|---|---|
+| test 2: 400 / 300 / 300 | 700 | 17.1 min, merge | 1261 m² | 51 m² | 6.4 | 0 |
+| equal: 333 / 333 / 333 | 667 | 17.9 min, merge | 931 m² | 72 m² | 6.4 | 0 |
+| west: 250 / 250 / 500 | 500 | 32.8 min, elsewhere | 39 m² | 0 | 4.8 | 430 (G5 over capacity) |
+
+- Equal split: the same merge jams, slightly later and over a smaller area. Demand at the merge
+  (667/min) is still above its capacity (429, or 614 at 1.86).
+- West-heavy split: the merge stays below 4/m². The only dense cells are short-lived (3 min at most)
+  around (620, 266) and (518, 246); G5 is over its capacity (500 vs 429/min), so a queue of 430 people
+  forms outside the gate instead of inside the area.
+- Counter-flow stays small in all three (≤ 96 m², ≤ 5 s).
+- **Reading:** where and whether a jam forms depends on the gate split, which is an assumption. The
+  merge jam is a property of the split, not a fixed fact of the site. The split is therefore a key
+  input for the sweeps and the ping experiment, and moving arrivals from G3/G4 to G5 is a candidate
+  intervention for Phase 5 (it trades a jam inside for a queue at the gate).
+
+## 2026-11-01 — Normal-day sweep (one-way routing, 75 min)
+`sweep.py normal_day --jobs 2`: inflows 250/500/1000/1500 per min, 75 min, seed 1, default gate
+shares (G3 40%, G4 30%, G5 30%), outflow_frac 0.6. `out/sweeps/normal_day/summary.{json,png}`,
+per-run maps in `out/normal_day_in*_s1/` (snapshots deleted).
+
+| inflow/min | max density | first ≥ 4/m² | area ≥ 4/m² | area ≥ 6/m² | two-way ≥ 1.8/m² | inside at end | waiting outside at end | compute |
+|---|---|---|---|---|---|---|---|---|
+| 250 | 2.1 | never | 0 | 0 | 0 | 7,234 | 0 | 39 min |
+| 500 | 2.9 | never | 0 | 0 | 16 m², 1 s | 15,112 | 0 | 80 min |
+| 1000 | 6.7 | 17.1 min | 2,659 m² | 143 m² | 144 m², ≤ 12 s | 41,313 | 2 | 3.2 h |
+| 1500 | 8.0 | 14.8 min | 5,481 m² | 628 m² | 176 m², ≤ 17 s | 59,455 | 14,299 | 11.8 h |
+
+- **Up to 500/min the site stays below 4/m²** everywhere; nobody queues at the gates.
+- **At 1000/min the G3+G4 merge jams** (as in test 2), from minute 17, and stays ≥ 4/m² for ~58 min.
+  The area is still filling at 75 min (+4,300 people in the last 15 min), so no steady state yet.
+- **At 1500/min all three inbound gates are over capacity** (G3 600 vs 429/min, G4 and G5 450 vs
+  429). The merge queue runs back up both the G3 and G4 roads to the gates, and 14,299 people are
+  still waiting outside at the end. A second, smaller dense spot appears on the ghat at about
+  (620, 265), the same place as in the west-heavy gate split.
+- **No dense cell is in counter-flow** in any run; two-way areas above the validated range are small
+  and short (≤ 176 m², ≤ 17 s).
+- **Reading:** for these gate shares the tipping point lies between 500 and 1000/min (the max-density
+  curve crosses 4/m² at roughly 650/min, by linear interpolation between two runs). All dense
+  areas are one-way queues behind a bottleneck (merge, gates), the validated regime. Values above
+  ~4–5/m² are what the model indicates, not validated. One seed per inflow, and the split is an
+  assumption (see the gate-share check), so the tipping point is indicative only.
+- Compute: a 1500/min run took 11.8 h on one core; per-step cost grows with the crowd. Python
+  bookkeeping in `run_sim.py` (positions read several times per second, spawn checks against all
+  agents) is a likely share of that and is the first thing to trim before the peak-day sweep.
+
 ## Open decisions
 - Change `capacity.specific_flow_pms` from 1.3 to the measured ~1.86?
 - Merge PR #1 and the Phase 2 work.
