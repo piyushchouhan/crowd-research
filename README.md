@@ -11,12 +11,13 @@ will test whether sparse phone pings (1–5% of people) can detect it in time.
 | `data/sentinel2/` | Sentinel-2 true-colour crops, Oct 2024 + Jan–Feb 2025 (Copernicus, free) |
 | `data/hotspot/sangam_nose.json` | Walkable area, bathing ghat, goal and gates in local metres (origin in UTM 44N) |
 | `scripts/build_hotspot.py` | Builds the hotspot from the Sangam Command traced layers (a local checkout of [sangam-command](https://github.com/piyushchouhan/sangam-command); path set in `config/sim.json`) |
-| `scripts/run_sim.py` | JuPedSim simulation: inbound to the ghat + outbound counter-flow |
-| `scripts/analyze.py` | Density / speed / crowd pressure per 4 m cell, plots |
+| `scripts/run_sim.py` | JuPedSim simulation: inbound to the ghat, return trips out after bathing (one-way gates by default) |
+| `scripts/analyze.py` | Density / speed / crowd pressure / counter-flow per 4 m cell, plots |
 | `out/<run>/` | Snapshots (1 s), `run.json`, `metrics.json`, PNGs |
 | `scripts/validate_juelich.py` | Model validation against Jülich bottleneck, one-way and two-way corridor experiments (`--model` picks the JuPedSim model) |
 | `scripts/score_validation.py` | Rank validation runs by mean error |
 | `scripts/sf_grid.sh` | SocialForce calibration grid (18 settings) |
+| `scripts/avm_grid.sh` | AnticipationVelocity calibration grid (two stages) |
 | `scripts/sweep.py` | Run a Sangam scenario (`config/sim.json` → `scenarios`) over its inflow range |
 | `docs/paper_draft.md` | Paper draft: methods, validation results, limitations, references |
 | `docs/research_log.md` | Dated log of what was done and decided |
@@ -51,9 +52,12 @@ Change the config, then re-run `build_hotspot.py` before simulating.
 - Model: JuPedSim `CollisionFreeSpeedModel`, radius 0.175 m, time gap 0.6 s (calibrated on
   Jülich data, see Validation), desired speed N(1.2, 0.2) m/s (pilgrims; a guess, not measured).
   No groups, no pushing forces.
-- Reaching the goal circle = bathed and gone. Outbound walkers start on the ghat at
-  `--outflow-frac` × inflow and pick a random gate.
-- Gate shares are guesses (`gate_weights`).
+- Reaching the goal circle = bathed. After `routing.bathing_min` (10 min), a share
+  `--outflow-frac` of bathers reappear on the ghat and walk to a random outbound gate.
+- One-way routing (`routing` in config): in through G3/G4/G5, out through G0/G1/G2, because
+  the model is validated for two-way flow only up to ~1.8/m². `--routing two_way` keeps the old set-up.
+- Gate shares are guesses (`gate_weights`, override with `--gate-weights`). Where a jam forms
+  depends on them (see `docs/research_log.md`, gate shares).
 - Thresholds: 4 people/m² = free walking stops, 6 people/m² = crush risk.
 - Runs in `out/in*_out60` were made with the old 15/25 m widths and are stale.
 
@@ -91,8 +95,13 @@ Results in `out/validation/<name>/` (`summary.json`, `flow_vs_width.png`,
 calibrated model gets 0/18 within ±15%: flow is 17–77% too low and 11/18 runs deadlock, because
 agents meet head-on instead of forming lanes. JuPedSim's other models did no better:
 AnticipationVelocity deadlocked, GeneralizedCentrifugalForce crashed, and SocialForce (18
-settings, `scripts/sf_grid.sh`) passed none of the tests. So counter-flow results from
-`run_sim.py` are not trustworthy yet. See `docs/research_log.md`.
+settings, `scripts/sf_grid.sh`) passed none of the tests. Imposed lanes (`--lanes
+halves|alternating|divided`) remove most of the false overcrowding but pass only 2/18 runs
+(mean flow error 29%). With `--replay` (each person enters where and when the real one was first
+tracked) 10/18 pass: every run below ~1.8/m² but one passes, and every run at ≥ ~2/m² fails. So
+two-way flow is validated up to ~1.8/m² only, and counter-flow results from `run_sim.py` above
+that are not trustworthy. AnticipationVelocity (`scripts/avm_grid.sh`, 24 settings) matched flow
+rates but froze permanently in every corridor run, so it was rejected too. See `docs/research_log.md`.
 
 What it does **not** show:
 - The model still clogs for good at the narrowest corridor exits (0.7–0.8 m) in some seeds;

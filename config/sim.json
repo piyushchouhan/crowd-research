@@ -47,17 +47,28 @@
     "desired_speed_mps": {"mean": 1.2, "sd": 0.2, "min": 0.6, "max": 1.8}
   },
   "gate_weights": [0.15, 0.15, 0.2, 0.2, 0.15, 0.15],
+  "routing": {
+    "mode": "one_way",
+    "_note": "one_way: inbound only through inbound_gates (gate_weights renormalised over them), outbound only through outbound_gates. The model fails two-way flow above ~2/m² (README, Validation), and one-way systems are standard at the Kumbh. two_way: the old set-up, every gate both ways.",
+    "inbound_gates": [3, 4, 5],
+    "outbound_gates": [0, 1, 2],
+    "_gates_note": "G2's lane is the only link between the nose and the pontoons, so it carries outbound only; with G2 inbound, people heading for G0/G1 walked up it head-on (test 2026-11-01).",
+    "bathing_min": 10,
+    "_bathing_note": "Time between reaching the bathing goal and walking back out. A guess."
+  },
   "scenarios": {
     "normal_day": {
       "inflow_ppm": [250, 500, 1000, 1500],
       "outflow_frac": 0.6,
-      "minutes": 20,
+      "_outflow_note": "Share of bathers who walk back out through the area after bathing_min; the rest leave by boat or another route. A guess.",
+      "minutes": 75,
+      "_minutes_note": "At 1000/min the area was still filling after 45 min (walk in ~15-25, bathe 10, walk out ~20).",
       "note": "Ordinary snan day. Inflow at the nose is not known; swept over an assumed range."
     },
     "mauni_amavasya": {
       "inflow_ppm": [2000, 3000, 4000, 6000],
       "outflow_frac": 0.6,
-      "minutes": 20,
+      "minutes": 75,
       "note": "Main bathing day. Assumed range around and above the summed gate capacity (~3400/min at 1.3 people/m/s)."
     }
   },
@@ -65,6 +76,9 @@
     "cell_m": 4.0,
     "min_walkable_m2": 6.0,
     "dense_ppm2": 4.0,
-    "critical_ppm2": 6.0
+    "critical_ppm2": 6.0,
+    "counterflow_ppm2": 1.8,
+    "counterflow_min_share": 0.2,
+    "_counterflow_note": "A cell is counter-flow when the smaller direction is at least min_share of its people; at or above counterflow_ppm2 the model is not validated there (Jülich two-way replay)."
   }
 }
