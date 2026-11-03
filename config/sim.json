@@ -80,5 +80,77 @@
     "counterflow_ppm2": 1.8,
     "counterflow_min_share": 0.2,
     "_counterflow_note": "A cell is counter-flow when the smaller direction is at least min_share of its people; at or above counterflow_ppm2 the model is not validated there (Jülich two-way replay)."
+  },
+  "pings": {
+    "_note": "Phase 4: synthetic phone pings drawn from simulated people. Values fixed before looking at results.",
+    "phone_share": [0.01, 0.02, 0.05],
+    "interval_s": [5, 15, 30],
+    "gps_sigma_m": [5, 10, 20],
+    "_sigma_note": "Standard deviation per axis. Phone GPS is ~5 m in the open, worse near buildings and in dense crowds.",
+    "outlier_frac": 0.05,
+    "outlier_scale": 5,
+    "dropout_frac": 0.1,
+    "draws": 20
+  },
+  "warning": {
+    "zone_m": [12, 20, 32],
+    "window_s": 120,
+    "eval_step_s": 10,
+    "alarm_density_ppm2": 2.0,
+    "_alarm_density_note": "Fruin level of service F for walkways (under 0.5 m² per person) starts at 2/m².",
+    "alarm_speed_mps": 0.5,
+    "_alarm_speed_note": "Weidmann's speed-density relation gives 0.5 m/s at about 2.3/m².",
+    "min_speed_span_s": 30,
+    "min_phones_speed": 2,
+    "trend_window_s": 300,
+    "forecast_min": 10,
+    "trend_min_ppm2": 1.0,
+    "alarm_hold_s": 30,
+    "event_hold_s": 60,
+    "_event_note": "Danger event: a 4 m cell at or above analysis.dense_ppm2 for event_hold_s in a row. Its zone's onset is what a warning must beat.",
+    "min_zone_m2": 50,
+    "_min_zone_note": "Zones with less walkable ground are slivers of road at a zone corner; a few GPS points snapped into them look like a crowd (found 2026-11-02). Their cells still count for the neighbouring zones.",
+    "go": {"phone_share": 0.02, "density_error": 0.3, "lead_min": 5,
+           "lead_ok_share": 0.8, "false_alarms_per_hour": 1,
+           "_note": "Set 2026-11-02 before testing the rules: at 2% phones (15 s, 10 m), median density error <= 30%, first jam warned >= lead_min ahead in >= lead_ok_share of draws, and on a calm day at most false_alarms_per_hour alarmed zones per hour (median)."},
+    "rules": {
+      "_note": "Variants tested in rules.py; chosen on oneway_in1000 + calm_in500, then checked on holdout_jam + holdout_calm.",
+      "base": ["count", "trend"],
+      "window_s": [120, 300],
+      "hold_s": [30, 120, 180],
+      "neighbour": [false, true],
+      "_neighbour_note": "true: at least one of the 8 neighbouring zones meets the same condition at the same time.",
+      "slow_mps": [null, 0.8],
+      "_slow_note": "0.8: also require the median phone speed over the zone and its neighbours below 0.8 m/s (Weidmann: about 1.5/m²)."
+    },
+    "flow": {
+      "_note": "flow.py: phones entering minus leaving a zone and its 8 neighbours. Alarm when the surplus is beyond chance (in - out >= sigmas * sqrt(in + out)), at that rate the block would reach dense_ppm2 within forecast_min, and both have held hold_s. A phone's first ping counts as entering, and its track ending as leaving (bathers leave the simulation at the goal).",
+      "window_s": [120, 180, 300],
+      "sigmas": [2, 3],
+      "hold_s": [60, 120],
+      "forecast_min": 10
+    },
+    "bottleneck": {
+      "_note": "bottleneck.py: phones passing counting circles on the roads that feed a known bottleneck give the demand (unique phones per window / share); alarm when demand exceeds the bottleneck's capacity by sigmas standard errors for hold_s. Bottlenecks come from the map (roads joining into a narrower one), not from simulation results.",
+      "sites": [
+        {"name": "G3+G4 merge", "xy": [406, 702], "width_m": 5.5,
+         "feeders": {"near": [[411, 762], [364, 744]], "gates": [[397, 1167], [46, 987]]}, "radius_m": 12,
+         "_note": "The G3 and G4 roads (5.5 m each) join into one 5.5 m road. Counting circles either 60 m up each road (near) or 30 m inside the G3 and G4 gates (gates, ~500 m and ~6 min walk upstream). The walk is real warning time: people counted at a gate reach the merge minutes later."}
+      ],
+      "window_s": [120, 180, 300],
+      "sigmas": [1, 2],
+      "hold_s": [60, 120]
+    },
+    "two_level": {
+      "_note": "two_level.py: the bottleneck rule with a capacity the phones learn (calibrate.py) and two alerts. Amber: demand >= amber_frac x capacity; red: demand >= capacity; both by sigmas standard errors, held hold_s. Days are scored by what happened at the merge (20 m zones around it, 60 s): jam (>= 4/m² event), busy (peak >= busy_ppm2 but no jam: amber is right, red is false) or calm (both false). Settings chosen on the history runs, tested unchanged on unseen runs.",
+      "window_s": [120, 180, 300],
+      "sigmas": [1, 2],
+      "amber_frac": [0.8, 0.85, 0.9],
+      "hold_s": [60, 120],
+      "busy_ppm2": 2.0,
+      "_busy_note": "Fruin level of service F for walkways (as alarm_density_ppm2); set before the test.",
+      "go": {"lead_min": 5, "lead_ok_share": 0.8, "red_before_jam_share": 0.8, "false_red_share": 0.2, "false_amber_calm_share": 0.2,
+             "_note": "At 2% phones, set before the test. Jam days: first alert >= lead_min ahead in lead_ok_share of draws and red before the jam in red_before_jam_share. Days without a jam: red in at most false_red_share of draws. Calm days: amber in at most false_amber_calm_share."}
+    }
   }
 }
