@@ -37,8 +37,11 @@ Before trusting the simulation, we validate its model against controlled lab exp
    corridor experiments. The default parameters underpredict bottleneck flow by about half;
    a two-parameter calibration brings all widths within ±15% (§5).
 3. **[TODO]** Sangam test scenarios over a range of inflows (Phase 3).
-4. **[TODO]** Detection performance vs. share of users and GPS error: the main result,
-   "X% of users gives Y minutes of warning" (Phase 4).
+4. Detection performance vs. share of users, ping interval and GPS error (Phase 4, §7). Per-zone
+   density from 2% of users does not give a usable warning. Counting users on the roads that
+   feed a known bottleneck, against a capacity the users' own traces learn from past days, gives
+   an amber "near capacity" alert 14–20 min before every simulated jam at 2–5% of users; an early
+   and reliable "over capacity" alert needs ~20%. The share of users need not be known.
 5. **[TODO]** Effect of interventions (Phase 5).
 
 ## 2. Related work
@@ -236,8 +239,13 @@ high near 3.6/m² (Fig. 3). The real data reaches 3.9/m².
    satellite imagery. Only plated roads count as walkable, which probably understates the
    open sand near the nose. A gate fed by several corridors sums their widths.
 5. **Capacity constant.** The configured specific flow (1.3/m/s) is below the measured 1.86/m/s.
-   It has not been changed yet.
+   It has not been changed. The Phase 4 warning does not use it (the capacity is learned), but
+   gate loads in the scenarios do.
 6. **Demand.** Gate shares, the outbound fraction and the pilgrims' desired speed are assumed.
+7. **Phase 4 scope.** The warning was tested at one bottleneck of one site, with simulated
+   crowds and synthetic pings. It needs the bottleneck and its feeding roads from the map, a
+   history of days near capacity, GPS error ≲ 10 m (for the queue detection) and a share of
+   users that is stable across days.
 
 ## 7. Methods for remaining phases [TODO]
 
@@ -281,6 +289,85 @@ high near 3.6/m² (Fig. 3). The real data reaches 3.9/m².
   and map-matching to the walking network. Estimators: kernel density (after Wirz et al.)
   and speed-based detection of stop-and-go waves and rising crowd pressure. Go/no-go:
   2% of users gives density within ±30% and at least 5 min of warning.
+- **Phase 4 results, first pass (one jam, one calm run; `docs/research_log.md`):** with 2% of
+  people reporting every 15 s with 10 m GPS error, density in 20 m zones is estimated within a
+  median 23% when the phone share is known (21–29% for 12–32 m zones). A trend rule (count
+  projected 10 min ahead) warns 5.4 min (median) before the first ≥ 4/m² event, close to the 5.3 min
+  it gets with perfect data from everyone; a plain count threshold (2/m²) gives 3.6 min and phone
+  speed comes too late in this model. But sampling noise raises alarms in 31–59 zones (counted before slivers of road under 50 m² were
+  excluded, which removed about half of them) on a calm
+  75 min run where perfect data raises none, so the warning is not yet usable. The lead time is
+  limited by the warning rule, the false alarms by the number of phones per zone.
+  (Figs. `fig_phase4_lead_vs_share.png`, `fig_phase4_density_error.png`, `fig_phase4_false_alarms.png`.)
+- **Phase 4, smarter rules:** 96 warning rules (hold time, neighbouring zone, phone speed, window,
+  zone size), selected on one jam and one calm run and checked on two new runs, with the pass
+  criterion fixed beforehand (2% phones: density ±30%, ≥ 5 min warning in ≥ 80% of draws, ≤ 1 false
+  alarm per hour). No rule passes at 2%: the rules that meet the false-alarm limit warn at most
+  ~3 min ahead (median), and the ones that warn 5 min ahead raise 20–50 false alarms per hour.
+  With perfect data the best rule warns 5.3–6.7 min ahead, so density alone leaves little margin.
+  At 5% phones a trend rule on 32 m zones comes close (≤ 1 false alarm/hour; ≥ 5 min ahead in 25% of
+  draws on the training jam, 85% on the holdout). (Fig. `fig_phase4_rules.png`.)
+- **Phase 4, flow signals:** counting phones entering minus leaving an area does not help at 2%
+  (the build-up is a small difference of two large flows). Comparing the demand heading for a
+  known bottleneck with its capacity does: with 2% of people reporting every 15 s, counting phones
+  just inside the two feeding gates (~500 m upstream) and alarming when demand exceeds the merge's
+  capacity (429/min) warns a median 13.8 min before the first ≥ 4/m² cell on both the training and
+  the holdout jam (≥ 5 min ahead in 100% of draws), with no false alarm on the median calm day
+  (one false alarm in 10–30% of calm draws). This passes the pre-set go criteria. It requires the
+  bottleneck and its capacity to be known from the map, covers only listed bottlenecks, assumes
+  the phone share is known, and has not yet been tested with demand near capacity, a gradual
+  rise in arrivals, or the higher measured capacity (1.86 people/m/s). (Fig. `fig_phase4_bottleneck.png`.)
+- **Phase 4, stress test:** with the rule fixed, five new runs with 380–550 people/min heading for the
+  merge and one with arrivals rising over 30 min. The jammed merge passes ~600/min (1.82 people/m/s);
+  jams form at 550/min but not at 480/min within 60 min. With the threshold at 429/min every jam
+  is warned 14–23 min ahead (including the slow rise), but 85–90% of days at 430–480/min raise a
+  false alarm; at 614/min false alarms vanish but the 550/min jam is mostly missed and leads fall
+  to 5–9 min. The warning therefore stands or falls with the bottleneck's effective capacity,
+  which has to be measured per site. (Fig. `fig_phase4_stress.png`.)
+- **Phase 4, self-calibration:** the phones learn the capacity from a history of nine days
+  without simulation truth (demand at the gates on days with and without a queue at the merge,
+  the queue detected from phone speeds). 2% phones saw a queue on every jam day and on no calm
+  day; the learned capacity (535/min with every phone) matches the tipping point from the stress
+  test. On six fresh runs (460–620/min) the frozen rule warned every jam 13–39 min ahead (≥ 5 min
+  in 90–100% of draws), but alarmed on 65–100% of draws on the three days that did not jam. At
+  500–520/min even perfect data alarms: these days are within ~5% of capacity and do not jam within
+  the hour, a grey zone the jam definition cannot resolve. At 460/min the false alarms come from
+  the phones: ~16 phones in a 2 min window give ~25% noise on demand. Self-calibration thus fixes
+  the capacity, but 2% phones are not precise enough to separate demand 15% below capacity from
+  demand at capacity. (Fig. `fig_phase4_calibrate.png`.)
+- **Phase 4, longer window and two-level alert:** counting over 5 min instead of 2, with an
+  amber alert at 80% of the learned capacity and a red one above it (2 σ, held 2 min), chosen
+  on the history runs and tested unchanged on six unseen runs (450–600/min). Red on days without
+  a jam fell from 65–100% of draws to 0–20%, and those days got amber instead; amber came
+  14–17 min before both jams. But red came before the jam in only 15–30% of draws: at 2% phones
+  2 σ is ~27% of demand, while these jams form at 5–12% over capacity. With every phone red came
+  17–21 min ahead. The pre-set criteria are not met (both jam days fail on red). At 2% the
+  system can give an early "near capacity" warning but not an early, reliable "over capacity"
+  one. (Fig. `fig_phase4_two_level.png`.)
+- **Phase 4, phone share for the two-level alert:** with the same rule at 2, 5, 10 and 20% phones
+  on the unseen runs, red came before the two jams in 10/35%, 25/80%, 70/100% and 90/100% of draws
+  (everyone 100/100%), and the first alert came ≥ 5 min ahead in every draw from 5% on. Red thus
+  needs ~20% phones to be early and reliable. No share passed all six days: a day just under the
+  busy line got amber at every share, and a no-jam day whose demand (546/min) was above the
+  learned capacity (535/min) got a false red more often as noise fell (25% at 2%, 45% at 20%,
+  0% with every phone). The history brackets the capacity only between 497 (no jam) and 573/min
+  (jam); rules re-chosen at 10–20% overfit this history. Beyond the phone share, red near
+  capacity needs a history with days close to capacity on both sides. (Fig.
+  `fig_phase4_two_level_shares.png`.)
+- **Phase 4, ping interval and GPS error:** with pings every 5 or 30 s and GPS error of 5 m the
+  results stay close to the baseline (15 s, 10 m); at 30 s and 2% the first alert comes later
+  (median 9–10 min). At 20 m GPS error the method fails in its learning step: the phones no
+  longer see the slow queue on the mildest jam day (10% of draws vs 100% at 10 m), the learned
+  capacity comes out too high, and red never fires before a jam. The learned capacity is in
+  "phone units" (it differs per ping setting, 318–560/min) and the alert condition does not
+  depend on the assumed share of users, so neither needs to be known, as long as the same
+  phones are used for learning and alerting.
+- **Phase 4, conclusion:** sparse pings do not resolve crowd density in small zones well enough
+  to warn, but they do measure how many people are heading for a known bottleneck. With 2–5% of
+  users this gives an early near-capacity warning (14–20 min ahead in the simulation); a reliable
+  over-capacity alarm needs ~20%. No method met the pre-set go criteria in full (2%: ≥ 5 min ahead
+  in ≥ 80% of draws and ≤ 1 false alarm per hour). The method's precision near the line is set by
+  how well the capacity is known: the past days must include days just below and just above it.
 - **Phase 5:** upstream alerts, inflow holds and re-routing.
 
 ## 8. Reproducibility

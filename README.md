@@ -1,8 +1,8 @@
 # Crowd research: Sangam nose
 
-Research sandbox for a crowd early-warning system. The question it answers first:
-**at what inflow does the Sangam nose become dangerous, and where?** Later runs
-will test whether sparse phone pings (1–5% of people) can detect it in time.
+Research sandbox for a crowd early-warning system. The questions: **at what inflow does
+the Sangam nose become dangerous, and where?** and **can sparse phone pings (1–5% of
+people) warn of it in time?** The Sangam is a test site for a general method.
 
 ## Layout
 
@@ -19,6 +19,12 @@ will test whether sparse phone pings (1–5% of people) can detect it in time.
 | `scripts/sf_grid.sh` | SocialForce calibration grid (18 settings) |
 | `scripts/avm_grid.sh` | AnticipationVelocity calibration grid (two stages) |
 | `scripts/sweep.py` | Run a Sangam scenario (`config/sim.json` → `scenarios`) over its inflow range |
+| `scripts/pings.py` | Synthetic phone pings from a run: share of people, interval, GPS error, outliers, dropouts |
+| `scripts/warn.py` | Phase 4 truth (≥ 4/m² events per zone) and density/speed/trend warnings from pings |
+| `scripts/rules.py`, `scripts/flow.py` | Smarter density rules and in/out flow signals (both fail at 2%) |
+| `scripts/bottleneck.py`, `scripts/stress.py` | Demand at the gates vs a bottleneck's capacity; stress test near capacity |
+| `scripts/calibrate.py` | Phones learn the bottleneck's capacity from a history of days |
+| `scripts/two_level.py`, `scripts/two_level_shares.py` | Amber/red alert with the learned capacity; tested by phone share, ping interval and GPS error |
 | `docs/paper_draft.md` | Paper draft: methods, validation results, limitations, references |
 | `docs/research_log.md` | Dated log of what was done and decided |
 
@@ -114,6 +120,27 @@ What it does **not** show:
   That config value is unchanged.
 - In the corridor setup 2–3 agents sometimes stick at the thin entrance walls; they are
   outside the measurement area.
+
+## Early warning from phone pings (Phase 4)
+
+Synthetic pings from the simulated crowd (share of people, ping interval, GPS error, outliers,
+dropouts; `config/sim.json` → `pings`, `warning`). Rules were chosen on old runs and tested
+unchanged on unseen runs against criteria set beforehand. Details in `docs/research_log.md`.
+
+- Density, speed or trend in small zones: at 2% of people the warning is late or false-alarms
+  many times an hour.
+- Phones counted at the gates feeding a known bottleneck, against a capacity the phones learn
+  from past days (`calibrate.py`, `two_level.py`): an amber "near capacity" alert comes
+  14–20 min before every jam at 2–5% of people; a red "over capacity" alert that is early and
+  rarely false needs ~20%. The share of people need not be known.
+- Limits: one bottleneck (the G3+G4 merge) at one site; needs the bottleneck and its feeding
+  roads from the map, a history with days near capacity, and GPS error ≲ 10 m.
+
+```sh
+cd scripts
+../.venv/bin/python two_level.py --history <9 runs> --test <unseen runs>
+../.venv/bin/python two_level_shares.py --history <9 runs> --test <unseen runs> [--interval 15 --sigma 10]
+```
 
 Sources: geometry traced from Copernicus Sentinel-2 (2025-01-27) in the Sangam Command
 project, © OpenStreetMap contributors (ODbL) where used.

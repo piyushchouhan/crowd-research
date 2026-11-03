@@ -48,6 +48,8 @@ def main():
     ap.add_argument("--gate-weights", type=float, nargs="*", default=GATE_WEIGHTS,
                     help="inbound share per gate G0..G5 (renormalised over the inbound gates)")
     ap.add_argument("--minutes", type=float, default=45)
+    ap.add_argument("--ramp-min", type=float, default=0,
+                    help="inflow rises linearly from 0 to --inflow over this many minutes (0 = full from the start)")
     ap.add_argument("--dt", type=float, default=0.05)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--name", default=None)
@@ -137,8 +139,9 @@ def main():
     for step in range(steps):
         if step % per_second == 0:
             # Arrivals for the next second; whoever cannot fit waits outside (backlog).
-            backlog_in += rng.poisson(in_rate)
             now = sim.elapsed_time()
+            ramp = min(1, now / (args.ramp_min * 60)) if args.ramp_min else 1
+            backlog_in += rng.poisson(in_rate * ramp)
             backlog_out += sum(t <= now for t in returns)
             returns = [t for t in returns if t > now]
             pos = positions()

@@ -288,7 +288,385 @@ per-run maps in `out/normal_day_in*_s1/` (snapshots deleted).
   bookkeeping in `run_sim.py` (positions read several times per second, spawn checks against all
   agents) is a likely share of that and is the first thing to trim before the peak-day sweep.
 
+## 2026-11-02 — Phase 4, first pass: phone pings on the 1000/min merge jam
+Code: `scripts/pings.py` (synthetic pings), `scripts/warn.py` (warnings and scoring); settings in
+`config/sim.json` -> `pings`, `warning`, fixed before looking at results. Runs: `oneway_in1000`
+(jam, 45 min, first ≥ 4/m² event at 17.1 min at the G3+G4 merge) and `calm_in500` (new, 500/min,
+75 min, never ≥ 4/m²; snapshots kept). Grid: phone share 1/2/5% × ping interval 5/15/30 s × GPS
+error 5/10/20 m × zone 12/20/32 m, 20 draws each. Results in `out/phase4/`; figures
+`docs/figures/fig_phase4_*.png`. Compute: 21 min in all.
+
+- **Truth:** a danger event is a 4 m cell at ≥ 4/m² for 60 s in a row. Lead time = event onset
+  minus the first alarm in its zone or a neighbouring zone.
+- **Warnings** (alarm once the condition holds 30 s, estimates over the last 120 s):
+  count (phone pings scaled by the known share ≥ 2/m², Fruin LoS F), speed (median phone speed
+  < 0.5 m/s, Weidmann ≈ 2.3/m²), trend (count estimate projected 10 min ahead reaches 4/m²).
+- **Oracle** (everyone reports every 10 s, no GPS error): count warns 3.1 min ahead, trend 5.3 min,
+  speed 1.1 min *late*. So the warning rule, not the phones, limits the lead time: only the trend
+  rule reaches 5 min even with perfect data. Speed is late because simulated people keep walking
+  until it is already crowded (CollisionFreeSpeed slows only near contact); real crowds probably
+  slow earlier, so this is a model limit, not evidence against speed.
+- **Density estimate (count, share known):** median error where the true density ≥ 1/m²,
+  2% phones, 15 s, 10 m: 29% (12 m zones), 23% (20 m), 21% (32 m); 5% phones: 15–22%. GPS error
+  (5→20 m) and ping interval matter little; zone size and phone share matter most. Passes ±30% at
+  2% for zones ≥ 20 m, **if the phone share is known**, which in practice it is not.
+- **Lead time, 2% phones, 15 s, 10 m, 20 m zones:** trend 5.4 min median (10–90%: 4.4–6.0), ≥ 5 min
+  in 70% of draws; count 3.6 min; speed 1.3 min late. Phone settings barely change the median.
+- **False alarms are the problem.** Calm run, same setting: count alarms in 31 zones, trend in 59
+  (of 667 valid 20 m zones, 75 min) where the oracle raises none: pure sampling noise. A 20 m road
+  zone at 1.5/m² holds ~165 people, i.e. ~3 phones at 2%, so the estimate swings by ±50%. 5% phones
+  cut this to 10 (count) and 21 (trend). In the jam run, the oracle's own "false" alarms (27 zones,
+  count) lie on the road below the merge, a packed but moving stream at 2.1–2.6/m² that never
+  reaches 4: the count rule cannot tell it from the start of a queue.
+- **Caveat on lead:** with few phones the median lead can exceed the oracle's (trend at 1%: 5.4 vs
+  5.3 min). That is noise firing early near the event, not skill; lead must be read together with
+  false alarms.
+- **Go/no-go (set in the roadmap: 2% → density ±30% and ≥ 5 min warning):** met on paper by the
+  trend rule (23%, 5.4 min), but the criterion did not include false alarms, and at ~50 false zone
+  alarms per hour on a calm day the warning would not be usable. **Verdict: not a go yet.** The
+  density side is promising; the warning side needs false-alarm control.
+- Known limits: one jam (one run, one place); phones spread at random (in reality one per family,
+  clustered); returning bathers get a new phone draw; the phone share is assumed known.
+
+## 2026-11-02 — Phase 4: how many phones are needed?
+`warn.py oneway_in1000 --calm-run calm_in500 --shares 0.01 0.02 0.05 0.1 0.2 0.5 --name phase4_shares`
+(15 s pings, 10 m GPS error, 20 and 32 m zones, 20 draws; 6 min). Figure
+`docs/figures/fig_phase4_share_sweep.png`. Medians over draws:
+
+| phones | density error (20 m) | calm-run false zones, count / trend (20 m) | lead, trend (20 m) | lead, count (20 m) |
+|---|---|---|---|---|
+| 1% | 30% | 61 / 122 | 5.8 min | 4.0 min |
+| 2% | 23% | 32 / 61 | 5.4 | 3.4 |
+| 5% | 16% | 12 / 23 | 5.4 | 3.2 |
+| 10% | 13% | 4 / 9 | 5.3 | 3.3 |
+| 20% | 12% | 2 / 3 | 5.3 | 3.3 |
+| 50% | 10% | 1 / 2 | 5.3 | 3.4 |
+| everyone, no GPS error | 6% | 0 / 0 | 5.3 | 3.1 |
+
+- With the simple rules of the first pass, false alarms on the calm day fall to ~1–3 zones only at
+  20–50% phones, far above the 1–5% the project is about. More phones do not add warning time:
+  the trend rule stays at ~5.3 min and the count rule at ~3.3 min, as with perfect data.
+- In 32 m zones a floor of ~6 false zones (count) remains even at 50%, where perfect data gives 0.
+  Likely an artefact of the method (snapping GPS points onto the walkable edge piles them up in
+  zones with little walkable area), not sampling noise. To check.
+- Reading: adding phones is an expensive way to remove noise. The next step is rules that use the
+  few phones better (more averaging, persistence, neighbouring zones, count with speed), aiming at
+  the false-alarm level of 20% phones with 2–5%.
+
+## 2026-11-02 — Phase 4: smarter warning rules (hold, neighbours, slowing)
+- **Method fix first:** at 50% phones, 32 m zones still had ~6 false alarms on the calm day.
+  They were slivers of road at zone corners (13–28 m² walkable); a few GPS points snapped into
+  them looked like a crowd. Zones now need ≥ 50 m² walkable (`warning.min_zone_m2`); their cells
+  still count for the neighbouring zones. This alone roughly halves the false alarms. Numbers in
+  the two entries above were made before this fix.
+- **Pass/fail fixed before testing** (`warning.go`): at 2% phones (15 s, 10 m GPS error), median
+  density error ≤ 30%, first jam warned ≥ 5 min ahead in ≥ 80% of draws, and ≤ 1 false alarm per
+  hour on a calm day (median alarmed zones).
+- **Rules** (`scripts/rules.py`, grid in `warning.rules`): base count or trend × window 2/5 min ×
+  hold 30 s/2 min/3 min × neighbour zone also over (no/yes) × phones nearby below 0.8 m/s (no/yes)
+  × 20/32 m zones = 96 rules, at 1/2/5% phones, 20 draws. Chosen on the training runs
+  (`oneway_in1000`, `calm_in500`), then checked unchanged on two new runs: `holdout_jam`
+  (1000/min, seed 2, equal gate split; first ≥ 4/m² at 18.4 min at the same merge, max 6.3/m²)
+  and `holdout_calm` (500/min, seed 2, 75 min). Results `out/phase4_rules/`, figure
+  `docs/figures/fig_phase4_rules.png`. Compute ~70 min.
+- **Result: no rule passes at 2% phones.** 83 of 96 rules meet the false-alarm limit, but none of
+  them warns 5 min ahead in any draw on the training jam. Best trade-offs on training at 2%:
+
+  | false alarms/hour allowed | best rule | warned ≥ 5 min ahead | median lead |
+  |---|---|---|---|
+  | ≤ 1 | trend, 20 m, hold 30 s, +neighbour, +slow | 0% | 3.1 min |
+  | ≤ 5 | trend, 20 m, 5 min window | 0% | 3.6 min |
+  | ≤ 20 | trend, 32 m (no extras) | 50% | 5.0 min |
+  | ≤ 50 | trend, 20 m (no extras) | 70% | 5.5 min |
+
+- On the holdout, the chosen rule keeps its false alarms (0/h on the new calm day) and warns
+  4.3 min ahead (median; ≥ 5 min in 40% of draws): it carries over, but still fails the lead
+  criterion.
+- **Why:** each extra check removes noise by waiting for more evidence, and waiting costs lead.
+  Even with perfect data the best rule warns only 5.3 min ahead (training jam) and 6.7 min
+  (holdout), so there is almost no margin to spend on filtering. Phone speed does not help in this
+  model, because simulated people slow only once it is already dense.
+- **Closest to passing:** trend, 32 m zones, no extras, at **5%** phones: ≤ 1 false alarm/hour on
+  both calm days, lead 4.5 min (training, 25% of draws ≥ 5 min) and 6.2 min (holdout, 85%).
+- **Reading:** with density alone, the warning horizon is set by how early the build-up shows in
+  density, about 5 min here, not by the number of phones. A longer horizon needs a signal that
+  shows earlier. The candidate is flow: this jam forms because 667–700 people/min reach a road
+  that carries ~430–610/min, which phones crossing the gates could show from the first minutes.
+  Not tested yet.
+
+## 2026-11-02 — Phase 4: flow signals (in/out balance, demand vs capacity)
+Density alone gives at most ~5–6.5 min of warning (entry above). Two flow-based warnings, same
+runs, same protocol (choose on training, check on holdout) and the same go criteria.
+
+**1. In/out balance, no map** (`scripts/flow.py`, `warning.flow`): phones entering minus leaving a
+zone and its 8 neighbours, alarm when the surplus is beyond chance (≥ 2–3 σ) and would fill the
+block to 4/m² within 10 min. 24 settings. Chosen (32 m, 3 min window, 2 σ, hold 60 s), 2% phones:
+lead 6.3 min training / 4.6 min holdout, ≥ 5 min in 50% / 35% of draws, false alarms 0.4 / 0 per
+hour. Fails the lead criterion. The build-up at the merge is the small difference of two large
+flows (~700/min in, ~550/min out, i.e. 100–160/min), which 2% of phones measure poorly; with perfect
+data it warns 5.6–7 min ahead, little more than density.
+
+**2. Demand vs capacity at a known bottleneck** (`scripts/bottleneck.py`, `warning.bottleneck`).
+From the map, the G3 and G4 roads (5.5 m each) join into one 5.5 m road: capacity 429/min at
+1.3 people/m/s. Demand = unique phones seen in counting circles (12 m) on the two feeding roads
+per window / phone share; alarm when demand − capacity ≥ 1–2 standard errors for 1–2 min.
+Counting circles either 60 m before the merge ("near") or 30 m inside the G3 and G4 gates
+("gates", ~500 m and ~6 min walk upstream). 24 settings. The "near" version was run first; it
+fails (2%: lead 5.0 / 3.8 min, ≥ 5 min in 50% / 20%) because people reach those circles only from
+minute 7 and the jam starts at minute 17. Counting at the gates was the version proposed; the
+walk from gate to merge is real warning time.
+
+Chosen on training: gates, 2 min window, 1 σ, hold 60 s. **It passes all three go criteria at 2%
+on both the training and the holdout runs:**
+
+| phones | jam lead, median (10–90%) train / holdout | ≥ 5 min ahead train / holdout | calm false alarms/hour (median) | calm days with any false alarm |
+|---|---|---|---|---|
+| 1% | 12.4 (5.9–14.0) / 11.7 (4.0–15.2) min | 95% / 90% | 0 / 0 | 10% / 15% |
+| **2%** | **13.8 (12.5–14.1) / 13.8 (8.9–15.4) min** | **100% / 100%** | **0 / 0** | 10% / 30% |
+| 5% | 13.9 / 15.2 min | 100% / 100% | 0 / 0 | 0% / 0% |
+| everyone | 14.1 / 15.5 min | 100% / 100% | 0 / 0 | 0% / 0% |
+
+Stricter settings (2 σ) have no false alarm on any calm draw but warn in time in only 60–85% of draws.
+
+**What this does and does not show:**
+- The warning comes from *where* phones are counted: upstream counting sees the demand one walk
+  (~6 min) plus one queue build-up (~7 min) before the jam. Watching density at the jam site
+  cannot see that far ahead.
+- It needs the bottleneck and its capacity in advance (from the map). It only watches listed
+  bottlenecks; a jam elsewhere (e.g. on the ghat at 1500/min) is not covered.
+- The calm day is an easy test: merge demand there is ~350/min against 429. Demand close to
+  capacity, a gradual rise in arrivals, and the capacity value itself (429 at 1.3 people/m/s vs
+  614 at the measured 1.86, see Open decisions) are untested. The capacity is the biggest risk:
+  if the real one is higher, the alarm fires without a jam.
+- The phone share is assumed known (demand is scaled by it).
+- One site, one bottleneck, two jam runs (two gate splits). Simulated people, not real ones.
+
+## 2026-11-02 — Phase 4: stress test of the bottleneck warning
+`scripts/stress.py` applies the rule chosen on training (gates, 2 min window, 1 σ, hold 60 s)
+unchanged to new runs, with the merge capacity at 429/min (config, 1.3 people/m/s) and at
+614/min (Jülich, 1.86). New runs (`run_sim.py --ramp-min` added: inflow rises linearly):
+`stress_merge380/430/480/550` (60 min, seed 3, default gate shares, so 380–550 people/min head for
+the merge) and `stress_ramp` (inflow 0 → 1000/min over 30 min, 60 min, seed 4). Results
+`out/phase4_stress/`, figure `docs/figures/fig_phase4_stress.png`.
+
+- **The simulated merge passes ~600 people/min once jammed** (600–606 in all four jam runs),
+  i.e. ~1.82 people/m/s, close to the Jülich 1.86, as expected for a model calibrated on Jülich.
+- **Where the jam starts:** no jam in 60 min at 380, 430 or 480/min; a jam at 550/min (from minute
+  30). So the effective capacity of this merge in the model lies between 480 and 550/min, below
+  its jammed throughput (two streams merging lose some capacity).
+- Share of draws that alarmed, 2% phones (jam runs: warned ≥ 5 min ahead):
+
+  | run | jam? | capacity 429 | capacity 614 |
+  |---|---|---|---|
+  | oneway_in1000 (700/min) | yes, 17 min | 100% (lead 13.9 min) | 75% ≥ 5 min (9.2 min) |
+  | holdout_jam (667/min) | yes, 18 min | 100% (14.8) | 60% (7.2) |
+  | stress_merge550 | yes, 30 min | 100% (23.4) | 10% (mostly missed) |
+  | stress_ramp | yes, 40 min | 100% (15.3) | 45% (4.9) |
+  | calm_in500 / holdout_calm (350/min) | no | 20% / 0% false | 0% / 0% |
+  | stress_merge380 | no | 35% false | 0% |
+  | stress_merge430 | no | **85% false** | 5% |
+  | stress_merge480 | no | **90% false** | 5% |
+
+- **Neither capacity value passes.** At 429 every jam is warned 14–23 min ahead, also with a slow
+  build-up, but demand between 429 and the real capacity raises false alarms on most days. At 614
+  false alarms vanish, but jams that form below 614 (550/min) are missed and the lead drops to
+  5–9 min.
+- **Reading:** the method is only as good as the capacity number of the bottleneck. With the right
+  threshold (here somewhere around 500/min) it would likely work, but choosing it from these runs
+  would be tuning on the test. The capacity has to come from outside: measured on site, e.g. the
+  flow phones see leaving the bottleneck while it is jammed (here ~600/min), corrected for merging.
+  This is a calibration step the method needs at every site.
+- The slow build-up (ramp) does not hurt: with 429 the lead is 15 min, with perfect data 21 min.
+
+## 2026-11-02 — Phase 4: phones learn the capacity themselves
+`scripts/calibrate.py`. Instead of taking the capacity from a book value, the phones learn it from
+a history of days, with no simulation truth: each day they measure the demand at the gates (5 min
+window) and whether a queue formed at the merge (median speed of ≥ 3 phones within 40 m below
+0.5 m/s for 3 min, each speed over 60–120 s because GPS error swamps a 15 s step). The day's demand
+is the median over the 10 min before the queue (or the whole day after minute 10 if none). Learned
+capacity = midway between the busiest day without a queue and the quietest day with one. Each
+draw of 2% phones learns its own value. Then the frozen rule (gates, 2 min, 1 σ, hold 60 s) with
+the learned threshold runs on six fresh runs not used anywhere before: `fresh_merge460/500/520/540/580/620`
+(60 min, seed 5, nominal demand at the merge 460–620/min). Truth only scores. Results
+`out/phase4_calibrate/`, figure `docs/figures/fig_phase4_calibrate.png`.
+
+- **History (9 old runs):** the 2% phones saw a queue on all four jam days in all 20 draws and on
+  none of the five calm days. Queue detection works.
+- **Learned capacity:** with everyone's phones 535/min; with 2% a median 450 (10–90%: 412–486) in
+  phone units, which read ~12% low (GPS moves pings out of the counting circles); the same bias
+  applies when the rule runs, so it cancels.
+- Fresh runs, share of draws that alarmed:
+
+  | run | truth | 2% phones | everyone |
+  |---|---|---|---|
+  | fresh_merge460 | no jam | **65% false** | 0% |
+  | fresh_merge500 | no jam | **95% false** | 100% false |
+  | fresh_merge520 | no jam | **100% false** | 100% false |
+  | fresh_merge540 | jam at 50 min | 100% (lead 39 min, ≥ 5 min in 95%) | 100% |
+  | fresh_merge580 | jam at 23 min | 100% (lead 17 min, 90%) | 100% |
+  | fresh_merge620 | jam at 19 min | 100% (lead 13 min, 100%) | 100% |
+
+- **Every jam is warned in time, but this does not pass the false-alarm criterion.**
+- **Two different causes of the false alarms:**
+  - **500–520/min: a grey zone, not a phone problem.** Even with every phone, the learned 535
+    alarms there. These days sit within ~5% of the merge's capacity: 540 jammed only at minute 50,
+    550 at minute 30, 520 not within the hour. Whether such a day "jams" depends on the run length
+    and chance, so an alarm here is arguably a fair "near capacity" warning, but by the pre-set
+    definition (≥ 4/m² for 60 s) it is false.
+  - **460/min: a phone problem.** With everyone no alarm; with 2% two out of three draws alarm at
+    some point in the hour. At 2% a 2 min window holds only ~16 phones, so the demand estimate has
+    ~25% noise, too much to tell 460 from 535 (a 15% gap), and a 1 σ margin is crossed by chance
+    over an hour.
+- **Reading:** self-calibration finds the right capacity (535 vs the 480–550 tipping point seen
+  in the stress test), so the "where does the capacity come from" problem is solved in principle.
+  What remains is precision: at 2% the rule cannot separate demand 15% below capacity from
+  demand at capacity. Not tuned here (would be tuning on the test); options for a next step are a
+  longer window or a larger margin (fewer false alarms, less lead), or a two-level alert
+  ("near capacity" vs "over capacity").
+
+## 2026-11-02 — Phase 4: longer window and two-level alert
+`scripts/two_level.py`, config `warning.two_level`. Two fixes for the false alarms above:
+(1) windows up to 5 min, so more phones per count; (2) amber when demand reaches amber_frac × the
+learned capacity, red when it exceeds it, both by k standard errors held for hold_s. Days are
+classed by the truth at the merge: jam (≥ 4/m² event), busy (peak 20 m zone ≥ 2/m² for 60 s,
+Fruin LoS F, no jam: amber is right, red is false), calm (both false). Go criteria, set before the
+test, at 2% phones: jam days first alert ≥ 5 min ahead in ≥ 80% of draws and red before the jam
+in ≥ 80%; days without a jam red in ≤ 20%; calm days amber in ≤ 20%. Capacity learned per draw
+from the 9 history runs (as in calibrate.py). 36 rules (window 2/3/5 min × 1/2 σ × amber at
+80/85/90% × hold 60/120 s) scored on the history; best chosen there; tested unchanged on six
+new runs never looked at before: `clean_merge450/490/510/530/560/600` (60 min, seed 6). The
+earlier `fresh_merge*` runs are also reported but are not a clean test (the fixes were designed
+after seeing them). Results `out/phase4_two_level/`, figure `docs/figures/fig_phase4_two_level.png`.
+
+- **Chosen on history:** 5 min window, 2 σ, amber at 80% of capacity, hold 120 s (8 of 9 history
+  days pass; stress_merge550 fails on red before the jam).
+- **Clean test, 2% phones:**
+
+  | run | truth (peak at merge) | amber | red | verdict | old rule (2 min, one level) |
+  |---|---|---|---|---|---|
+  | clean_merge450 | calm (2.0/m²) | 20% | 0% | pass | 65% |
+  | clean_merge490 | busy (2.3) | 60% | 5% | pass | 90% |
+  | clean_merge510 | busy (2.5) | 90% | 10% | pass | 90% |
+  | clean_merge530 | busy (2.7) | 95% | 20% | pass | 100% |
+  | clean_merge560 | jam at 27 min | 100%, lead 16.5 min, ≥ 5 min 75% | before jam 15% | fail | 100% |
+  | clean_merge600 | jam at 23 min | 100%, lead 14.5 min, ≥ 5 min 100% | before jam 30% | fail | 100% |
+
+- **False alarms fixed:** red on days without a jam fell from 65–100% of draws to 0–20%; those
+  days now get amber, which matches what happened (crowded, no jam).
+- **Early warning kept:** amber comes 14–17 min before both jams.
+- **Red fails:** it comes before the jam in only 15–30% of draws (median red at minute 20 for
+  the jam at 27, at minute 40 for the jam at 23, i.e. mostly after). With 2% phones a 5 min window
+  holds ~50 phones, so 2 σ is ~27% of demand: red needs demand ~25% above capacity before it
+  fires, and these jams form at 5–12% above. With every phone red comes 17–21 min ahead on both
+  jams, so this is phone precision, not the method.
+- **Overall: does not pass the pre-set go** (2 of 6 clean days fail, both on red; clean_merge560
+  also at 75% < 80% on lead). The trade-off at 2% is now explicit: a red that is both early and
+  rarely false needs to tell demand 5% over capacity from 5% under, which ~50 phones cannot.
+  With every phone even clean_merge530 (no jam) gets red, so part of this is the grey zone too.
+- Possible next steps (not tested): judge the system on amber as the warning and red as a
+  confirmation (would need a new pre-set criterion, and is a weaker claim); or measure how the
+  red's timing improves with phone share (5%, 10%).
+
+## 2026-11-02 — Phase 4: how many phones does the two-level alert need?
+`scripts/two_level_shares.py`. Same protocol as two_level.py at 2, 5, 10 and 20% phones (nested:
+the 5% phones include the 2% ones), 20 draws, plus everyone. Per share: capacity learned from the
+9 history runs, then two rules on the six unseen `clean_merge*` runs: the rule chosen at 2% in
+two_level.py (fixed: 5 min, 2 σ, amber 80%, hold 120 s) and the rule chosen on the history at
+that share (own). The 2% set is a new draw; it matches two_level.py closely (red before jam
+10/35% vs 15/30%). Results `out/phase4_two_level_shares/`, figure
+`docs/figures/fig_phase4_two_level_shares.png`.
+
+- Fixed rule, unseen runs:
+
+  | share | red before jam (560 / 600) | first alert ≥ 5 min ahead | false red, worst day without a jam (530) | days passing |
+  |---|---|---|---|---|
+  | 2% | 10% / 35% | 75% / 100% | 25% | 3/6 |
+  | 5% | 25% / 80% | 100% / 100% | 15% | 4/6 |
+  | 10% | 70% / 100% | 100% / 100% | 30% | 3/6 |
+  | 20% | 90% / 100% | 100% / 100% | 45% | 4/6 |
+  | everyone | 100% / 100% | 100% / 100% | 0% | 5/6 |
+
+- **Red needs ~20% phones** to come before both jams in ≥ 80% of draws (10% for the bigger
+  overload at 600/min, 5% for it at the margin). Amber warns ≥ 5 min ahead from 5% on, in every draw.
+- **No share passes all six days.** The remaining failures are not about the number of phones:
+  - **clean_merge450, amber on a "calm" day** (fails from 5% on): its peak was 1.99/m², just under
+    the 2.0 busy line, and its demand (~84% of capacity) is above the amber level. Everyone's
+    phones give amber there too. A boundary case of the day classes, not a phone error.
+  - **clean_merge530, false red rising with share** (25 → 45%, everyone 0%). Checked: the phones'
+    undercount is the same on every day (20%/everyone = 0.84–0.85 on 480, 510, 530 and 550), and
+    the learned capacity tightens with share (10–90%: 411–490 at 2%, 440–457 at 20%, phone units)
+    without moving. But this day's real demand (546/min, everyone's phones) is above the learned
+    535: the history has no day between 497 (no jam) and 573 (jam), so the capacity is only known
+    to lie in that range, and the midpoint is slightly low. With less random noise the red margin
+    shrinks and this shows. Probably also: the error estimate (√ of the phone count) leaves out
+    GPS moving pings in and out of the 12 m counting circles, so "2 σ" is less than 2 real σ.
+- **Rules chosen at 10–20% overfit:** with less noise the history picks sharper rules (3 or 2 min,
+  amber 90%) that pass every history day but give a false red on 85% of draws on the 530 day.
+  The history's only busy no-jam day is 480, so nothing in it punishes red near capacity.
+- **Reading:** at 2–5% the system gives an early "near capacity" warning; an early "over capacity"
+  red needs ~20%. Above that, the limit is how well the capacity is known: a history needs days
+  close to capacity on both sides (here nothing between 497 and 573/min) before red can be
+  trusted near the line.
+
+## 2026-11-03 — Phase 4: ping interval and GPS error
+`two_level_shares.py --interval --sigma`: the same protocol and the fixed 2% rule with pings
+every 5 or 30 s (GPS 10 m) and GPS error 5 or 20 m (every 15 s); capacity learned with the same
+phones. Results `out/phase4_sens_i{5,30,15}_s{10,5,20}/`. Unseen runs, fixed rule
+(red before jam on 560 / 600; first alert ≥ 5 min ahead on 560 / 600; worst false red, 530 day):
+
+| setting | 2% | 5% | 20% |
+|---|---|---|---|
+| 15 s, 10 m (baseline) | red 10/35%; alert 75/100%; false 25% | 25/80%; 100/100%; 15% | 90/100%; 100/100%; 45% |
+| 5 s, 10 m | 10/50%; 95/100%; 20% | 35/90%; 100/100%; 30% | 95/100%; 100/100%; 35% |
+| 30 s, 10 m | 10/45%; 65/80% (lead 9–10 min); 5% | 20/70%; 95/100%; 15% | 80/100%; 100/100%; 35% |
+| 15 s, 5 m | 20/45%; 90/100%; 30% | 25/75%; 100/100%; 20% | 80/100%; 100/100%; 30% |
+| 15 s, 20 m | 0/5%; 20/50% (lead 5–8 min); 0% | 0/5%; 45/85%; 0% | 0/0%; 90/100%; 0% |
+
+- **Ping interval (5–30 s) and GPS error up to 10 m change little.** At 30 s and 2% the first
+  alert is later (median 9–10 min, ≥ 5 min ahead in 65–80%); from 5% on it is as before.
+- **The learned capacity is in "phone units"** and differs per setting (median 318 at 30 s,
+  449 at 15 s, 560 at 5 s, all at 10 m): fewer pings per crossing means fewer phones caught in the
+  12 m counting circles. It does not matter as long as learning and alerting use the same phones.
+- **At 20 m GPS error the method breaks, in the learning step.** Checked: at 20 m, 2% phones see
+  the queue on the mildest jam day (stress_merge550) in only 10% of draws (100% at 10 m); on the
+  bigger jams still 100%. Counted as a day without a queue, it pushes the learned capacity above
+  the real one (phones read 460 on that day; learned 505–516), so red never fires before the jams
+  and amber comes late. The counts themselves read ~20% low at 20 m on every day alike, which
+  would cancel. Cause: between two pings 60–120 s apart, 20 m of GPS error adds roughly 0.3–0.4 m/s of
+  apparent speed (about half that at 10 m, less after snapping to the walkable area), enough to
+  lift a slow queue over the 0.5 m/s line. Not tuned (longer speed spans or a wider circle would be the
+  candidates); a stated limit: queue detection, and so the capacity, needs GPS error ≲ 10 m.
+- **The phone share does not need to be known.** Demand, its standard error and the learned
+  capacity are all divided by the same assumed share, so the alert condition is the same whatever
+  share is assumed, as long as the real share is the same on the history days and the day of the
+  alert. A share that changes between days (app adoption growing) would bias it.
+
+## 2026-11-03 — Phase 4: conclusion
+Question: can 1–5% of people's phones warn of a dangerous jam 5–10 min ahead?
+- **Density in small zones: no.** At 2% the density error is fine (23%), but per-zone density,
+  speed and trend rules either warn too late or false-alarm many times an hour; ~20% phones would
+  be needed (first pass, smarter rules, flow).
+- **Demand at a known bottleneck against a learned capacity: partly yes.** Counting phones at the
+  gates that feed the bottleneck, with a capacity the phones learn from past days:
+  - an amber "near capacity" alert comes 14–20 min before every jam at 2–5% phones (≥ 5 min ahead
+    in 75–100% of draws at 2%, all draws from 5%), with pings every 5–15 s and GPS error ≤ 10 m;
+    with pings every 30 s it holds from 5% on (at 2%: median 9–10 min, ≥ 5 min ahead in 65–80%);
+  - a red "over capacity" alert that is both early and rarely false needs ~20% phones for jams
+    5–12% over capacity (10% for bigger overloads);
+  - false red on days without a jam: 0–45%, worst on a day 2% above the learned capacity, which
+    no number of phones fixes: the history bracketed the capacity only between 497 and 573/min.
+- **The pre-set go criteria (2%, ≥ 5 min in ≥ 80%, ≤ 1 false alarm/h) are not met** by any method
+  in full. What is met at 2–5% is an early near-capacity warning with few false reds.
+- **Limits:** one bottleneck (G3+G4 merge), one site, simulated pings and crowd; the bottleneck
+  must be known from the map with its feeding roads; the capacity needs a history with days near
+  it; GPS error must stay ≲ 10 m for the queue detection; the phone share must be stable across days.
+- Next (agreed 2026-11-03): a general-events phase for fairs, concerts and pandals: find
+  bottlenecks and counting points from the map automatically, get the capacity without a history
+  (width × specific flow as a start, then the flow phones see leaving a queued bottleneck), and add
+  a density check for standing crowds (concert fronts).
+
 ## Open decisions
-- Change `capacity.specific_flow_pms` from 1.3 to the measured ~1.86?
-- Merge PR #1 and the Phase 2 work.
-- Next phase (3: Sangam scenarios) not started.
+- `capacity.specific_flow_pms` (1.3 vs ~1.86): no longer blocks the warning, because the phones
+  learn the capacity. Still used for gate loads in `run_sim.py` and would be the starting value
+  for sites without a history. The simulated merge passes ~600 people/min (~1.82 people/m/s).
+- Phase 4 is committed on branch `phase4-pings`. PRs #1–#4 are merged.
